@@ -1,5 +1,7 @@
 ﻿import React, { useState } from 'react';
-import { CreditCard, Lock, Plus, X } from 'lucide-react';
+import { CreditCard, Lock, Plus, X, Loader } from 'lucide-react';
+import { useAuth } from '../../../../contexts/AuthContext';
+import { FreelanceFirestoreService } from '../../../../lib/firestoreService';
 
 interface ClientPaymentStepProps {
   user: any;
@@ -23,10 +25,11 @@ const ClientPaymentStep: React.FC<ClientPaymentStepProps> = ({
   onNext, 
   onBack 
 }) => {
-  // Demo payment methods
+  const { currentUser } = useAuth();
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [showAddCard, setShowAddCard] = useState(paymentMethods.length === 0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
   
   // New card form state
   const [newCard, setNewCard] = useState({
@@ -38,69 +41,133 @@ const ClientPaymentStep: React.FC<ClientPaymentStepProps> = ({
     saveCard: true
   });
   
-  // Card form validation
+  // Card form validation and Firebase errors
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [firebaseErrors, setFirebaseErrors] = useState<Record<string, string>>({});
 
   const handleCardInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     
     if (name === 'cardNumber') {
-      // Format card number with spaces
-      const formattedValue = value
-        .replace(/\s/g, '')
-        .replace(/(\d{4})/g, '$1 ')
-        .trim()
-        .slice(0, 19);
+      // Remove all non-digits
+      const cleanValue = value.replace(/\D/g, '');
+      
+      // Apply formatting based on card type
+      let formattedValue = '';
+      const cardInfo = getCardBrand(cleanValue);
+      
+      if (cardInfo.brand === 'American Express') {
+        // Format: 1234 567890 12345
+        formattedValue = cleanValue
+          .replace(/(\d{4})(\d{6})(\d{5})/, '$1 $2 $3')
+          .slice(0, 17); // 15 digits + 2 spaces
+      } else {
+        // Format: 1234 5678 9012 3456
+        formattedValue = cleanValue
+          .replace(/(\d{4})/g, '$1 ')
+          .trim()
+          .slice(0, 19); // 16 digits + 3 spaces
+      }
       
       setNewCard({ ...newCard, [name]: formattedValue });
+    } else if (name === 'cardholderName') {
+      // Only allow letters, spaces, dots, and hyphens
+      const cleanValue = value.replace(/[^a-zA-Z\s.-]/g, '').slice(0, 50);
+      setNewCard({ ...newCard, [name]: cleanValue });
+    } else if (name === 'cvv') {
+      // Only allow digits, limit based on card type
+      const cardInfo = getCardBrand(newCard.cardNumber);
+      const maxLength = cardInfo.brand === 'American Express' ? 4 : 3;
+      const cleanValue = value.replace(/\D/g, '').slice(0, maxLength);
+      setNewCard({ ...newCard, [name]: cleanValue });
     } else if (name === 'saveCard') {
       setNewCard({ ...newCard, [name]: (e.target as HTMLInputElement).checked });
     } else {
       setNewCard({ ...newCard, [name]: value });
     }
     
-    // Clear error when field is edited
-    if (errors[name]) {
-      setErrors({ ...errors, [name]: '' });
+    // Clear related errors when field is edited
+    const newErrors = { ...errors };
+    delete newErrors[name];
+    
+    // Clear expiry date error when either month or year changes
+    if (name === 'expiryMonth' || name === 'expiryYear') {
+      delete newErrors.expiryDate;
     }
+    
+    setErrors(newErrors);
   };
 
   const validateCardForm = () => {
     const newErrors: Record<string, string> = {};
     
-    // Basic validation - in a real app this would be more sophisticated
-    if (!newCard.cardNumber.replace(/\s/g, '').match(/^\d{16}$/)) {
-      newErrors.cardNumber = 'Please enter a valid 16-digit card number';
+    // Validate card number
+    const cardInfo = getCardBrand(newCard.cardNumber);
+    if (!newCard.cardNumber.trim()) {
+      newErrors.cardNumber = 'Card number is required';
+    } else if (cardInfo.brand === 'Unknown') {
+      newErrors.cardNumber = 'This card type is not supported. Please use Visa, Mastercard, American Express, Discover, Diners Club, or JCB.';
+    } else if (!cardInfo.isValid) {
+      newErrors.cardNumber = `Invalid ${cardInfo.brand} card number`;
     }
     
-    if (!newCard.cardholderName) {
-      newErrors.cardholderName = 'Please enter the cardholder name';
+    // Validate cardholder name
+    if (!newCard.cardholderName.trim()) {
+      newErrors.cardholderName = 'Cardholder name is required';
+    } else if (newCard.cardholderName.trim().length < 2) {
+      newErrors.cardholderName = 'Please enter a valid name';
+    } else if (!/^[a-zA-Z\s.-]+$/.test(newCard.cardholderName.trim())) {
+      newErrors.cardholderName = 'Name can only contain letters, spaces, dots, and hyphens';
     }
     
+    // Validate expiry date
     if (!newCard.expiryMonth) {
-      newErrors.expiryMonth = 'Required';
+      newErrors.expiryMonth = 'Month is required';
     }
     
     if (!newCard.expiryYear) {
-      newErrors.expiryYear = 'Required';
+      newErrors.expiryYear = 'Year is required';
     }
     
-    if (!newCard.cvv.match(/^\d{3,4}$/)) {
-      newErrors.cvv = 'Enter a valid CVV';
+    if (newCard.expiryMonth && newCard.expiryYear) {
+      if (!validateExpiryDate(newCard.expiryMonth, newCard.expiryYear)) {
+        newErrors.expiryDate = 'Card has expired or invalid date';
+      }
+    }
+    
+    // Validate CVV
+    const currentCardBrand = getCardBrand(newCard.cardNumber).brand;
+    if (!newCard.cvv) {
+      newErrors.cvv = 'CVV is required';
+    } else if (!validateCVV(newCard.cvv, currentCardBrand)) {
+      const expectedLength = currentCardBrand === 'American Express' ? 4 : 3;
+      newErrors.cvv = `CVV must be ${expectedLength} digits`;
     }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleAddCard = () => {
+  const handleAddCard = async () => {
     if (!validateCardForm()) return;
     
-    setIsSubmitting(true);
+    // Additional check to prevent unknown cards from being processed
+    const cardInfo = getCardBrand(newCard.cardNumber);
+    if (cardInfo.brand === 'Unknown') {
+      setFirebaseErrors({ card: 'Cannot add unsupported card type. Please use a supported card.' });
+      return;
+    }
     
-    // In a real app, this would make an API call to a payment processor
-    setTimeout(() => {
-      // Create a new payment method
+    if (!currentUser) {
+      setFirebaseErrors({ card: 'You must be logged in to add payment methods' });
+      return;
+    }
+    
+    setIsSubmitting(true);
+    setFirebaseErrors({});
+    
+    try {
+      // Create a new payment method (in real app, integrate with Stripe/PayPal)
       const newPaymentMethod: PaymentMethod = {
         id: `card_${Date.now()}`,
         type: 'credit_card',
@@ -109,12 +176,35 @@ const ClientPaymentStep: React.FC<ClientPaymentStepProps> = ({
         last4: newCard.cardNumber.replace(/\s/g, '').slice(-4),
         expiryMonth: newCard.expiryMonth,
         expiryYear: newCard.expiryYear,
-        brand: getCardBrand(newCard.cardNumber)
+        brand: getCardBrand(newCard.cardNumber).brand
       };
       
-      setPaymentMethods([...paymentMethods, newPaymentMethod]);
+      const updatedPaymentMethods = [...paymentMethods, newPaymentMethod];
+      setPaymentMethods(updatedPaymentMethods);
+      
+      // Save to Firebase
+      const existingProfile = await FreelanceFirestoreService.getUserProfile(currentUser.uid);
+      
+      if (existingProfile && existingProfile.length > 0) {
+        await FreelanceFirestoreService.update('users', existingProfile[0].id, {
+          paymentMethods: updatedPaymentMethods,
+          paymentSetupCompleted: true,
+          paymentSetupCompletedAt: new Date()
+        });
+      } else {
+        // Shouldn't happen in normal flow, but handle it
+        await FreelanceFirestoreService.create('users', {
+          userId: currentUser.uid,
+          email: currentUser.email,
+          userType: 'client',
+          paymentMethods: updatedPaymentMethods,
+          paymentSetupCompleted: true,
+          paymentSetupCompletedAt: new Date(),
+          isActive: true
+        });
+      }
+      
       setShowAddCard(false);
-      setIsSubmitting(false);
       
       // Reset form
       setNewCard({
@@ -125,7 +215,13 @@ const ClientPaymentStep: React.FC<ClientPaymentStepProps> = ({
         cvv: '',
         saveCard: true
       });
-    }, 1500);
+      
+    } catch (error) {
+      console.error('Error saving payment method:', error);
+      setFirebaseErrors({ card: 'Failed to save payment method. Please try again.' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleAddPayPal = () => {
@@ -133,45 +229,169 @@ const ClientPaymentStep: React.FC<ClientPaymentStepProps> = ({
     alert('PayPal integration would be implemented here');
   };
 
-  const handleRemovePaymentMethod = (id: string) => {
-    const updatedMethods = paymentMethods.filter(method => method.id !== id);
-    setPaymentMethods(updatedMethods);
+  const handleRemovePaymentMethod = async (id: string) => {
+    if (!currentUser) return;
     
-    // If we removed the default method, set the first one as default
-    if (paymentMethods.find(method => method.id === id)?.isDefault && updatedMethods.length > 0) {
-      setPaymentMethods(updatedMethods.map((method, index) => 
-        index === 0 ? { ...method, isDefault: true } : method
-      ));
-    }
-    
-    // If no payment methods left, show add card form
-    if (updatedMethods.length === 0) {
-      setShowAddCard(true);
+    try {
+      let updatedMethods = paymentMethods.filter(method => method.id !== id);
+      
+      // If we removed the default method, set the first one as default
+      if (paymentMethods.find(method => method.id === id)?.isDefault && updatedMethods.length > 0) {
+        updatedMethods = updatedMethods.map((method, index) => 
+          index === 0 ? { ...method, isDefault: true } : method
+        );
+      }
+      
+      setPaymentMethods(updatedMethods);
+      
+      // Update Firebase
+      const existingProfile = await FreelanceFirestoreService.getUserProfile(currentUser.uid);
+      if (existingProfile && existingProfile.length > 0) {
+        await FreelanceFirestoreService.update('users', existingProfile[0].id, {
+          paymentMethods: updatedMethods
+        });
+      }
+      
+      // If no payment methods left, show add card form
+      if (updatedMethods.length === 0) {
+        setShowAddCard(true);
+      }
+      
+    } catch (error) {
+      console.error('Error removing payment method:', error);
+      setFirebaseErrors({ remove: 'Failed to remove payment method. Please try again.' });
     }
   };
 
-  const handleSetDefault = (id: string) => {
-    setPaymentMethods(paymentMethods.map(method => ({
-      ...method,
-      isDefault: method.id === id
-    })));
+  const handleSetDefault = async (id: string) => {
+    if (!currentUser) return;
+    
+    try {
+      const updatedMethods = paymentMethods.map(method => ({
+        ...method,
+        isDefault: method.id === id
+      }));
+      
+      setPaymentMethods(updatedMethods);
+      
+      // Update Firebase
+      const existingProfile = await FreelanceFirestoreService.getUserProfile(currentUser.uid);
+      if (existingProfile && existingProfile.length > 0) {
+        await FreelanceFirestoreService.update('users', existingProfile[0].id, {
+          paymentMethods: updatedMethods
+        });
+      }
+      
+    } catch (error) {
+      console.error('Error updating default payment method:', error);
+      setFirebaseErrors({ default: 'Failed to update default payment method. Please try again.' });
+    }
   };
 
-  const getCardBrand = (cardNumber: string): string => {
-    const firstDigit = cardNumber.replace(/\s/g, '').charAt(0);
+  // Luhn algorithm for credit card validation
+  const validateCardNumber = (cardNumber: string): boolean => {
+    const cleanNumber = cardNumber.replace(/\s/g, '');
     
-    switch (firstDigit) {
-      case '4':
-        return 'Visa';
-      case '5':
-        return 'Mastercard';
-      case '3':
-        return 'American Express';
-      case '6':
-        return 'Discover';
-      default:
-        return 'Unknown';
+    // Check if it's all digits and has valid length
+    if (!/^\d+$/.test(cleanNumber) || cleanNumber.length < 13 || cleanNumber.length > 19) {
+      return false;
     }
+    
+    // Luhn algorithm
+    let sum = 0;
+    let shouldDouble = false;
+    
+    // Loop through digits from right to left
+    for (let i = cleanNumber.length - 1; i >= 0; i--) {
+      let digit = parseInt(cleanNumber.charAt(i));
+      
+      if (shouldDouble) {
+        digit *= 2;
+        if (digit > 9) {
+          digit -= 9;
+        }
+      }
+      
+      sum += digit;
+      shouldDouble = !shouldDouble;
+    }
+    
+    return sum % 10 === 0;
+  };
+
+  const getCardBrand = (cardNumber: string): { brand: string; isValid: boolean } => {
+    const cleanNumber = cardNumber.replace(/\s/g, '');
+    
+    // Card patterns with their validation rules
+    const cardPatterns = {
+      'Visa': {
+        pattern: /^4/,
+        lengths: [13, 16, 19]
+      },
+      'Mastercard': {
+        pattern: /^5[1-5]|^2[2-7]/,
+        lengths: [16]
+      },
+      'American Express': {
+        pattern: /^3[47]/,
+        lengths: [15]
+      },
+      'Discover': {
+        pattern: /^6(?:011|5)/,
+        lengths: [16, 19]
+      },
+      'Diners Club': {
+        pattern: /^3[0689]/,
+        lengths: [14]
+      },
+      'JCB': {
+        pattern: /^35/,
+        lengths: [16]
+      }
+    };
+    
+    for (const [brand, rules] of Object.entries(cardPatterns)) {
+      if (rules.pattern.test(cleanNumber)) {
+        const isValidLength = rules.lengths.includes(cleanNumber.length);
+        return { 
+          brand, 
+          isValid: isValidLength && validateCardNumber(cardNumber)
+        };
+      }
+    }
+    
+    return { brand: 'Unknown', isValid: false };
+  };
+
+  // Validate expiry date
+  const validateExpiryDate = (month: string, year: string): boolean => {
+    if (!month || !year) return false;
+    
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear() % 100; // Get last 2 digits
+    const currentMonth = currentDate.getMonth() + 1;
+    
+    const expMonth = parseInt(month);
+    const expYear = parseInt(year);
+    
+    // Check if month is valid
+    if (expMonth < 1 || expMonth > 12) return false;
+    
+    // Check if card is expired
+    if (expYear < currentYear) return false;
+    if (expYear === currentYear && expMonth < currentMonth) return false;
+    
+    return true;
+  };
+
+  // Validate CVV based on card type
+  const validateCVV = (cvv: string, cardBrand: string): boolean => {
+    if (!cvv) return false;
+    
+    // American Express has 4-digit CVV, others have 3-digit
+    const expectedLength = cardBrand === 'American Express' ? 4 : 3;
+    
+    return /^\d+$/.test(cvv) && cvv.length === expectedLength;
   };
 
   const getYears = () => {
@@ -183,9 +403,70 @@ const ClientPaymentStep: React.FC<ClientPaymentStepProps> = ({
     return years;
   };
 
-  const handleSubmit = () => {
-    // This step is technically optional
-    onNext({ paymentMethods });
+  const handleSubmit = async () => {
+    if (!currentUser) {
+      setFirebaseErrors({ submit: 'You must be logged in to continue' });
+      return;
+    }
+    
+    // Check if there's an invalid card being added
+    if (showAddCard && newCard.cardNumber) {
+      const cardInfo = getCardBrand(newCard.cardNumber);
+      if (cardInfo.brand === 'Unknown') {
+        setFirebaseErrors({ submit: 'Please remove or correct the unsupported card before continuing.' });
+        return;
+      }
+      if (!validateCardForm()) {
+        setFirebaseErrors({ submit: 'Please complete or correct the card information before continuing.' });
+        return;
+      }
+    }
+    
+    setLoading(true);
+    setFirebaseErrors({});
+    
+    try {
+      // Get existing user profile
+      const existingProfile = await FreelanceFirestoreService.getUserProfile(currentUser.uid);
+      
+      const paymentData = {
+        paymentMethods,
+        paymentSetupCompleted: paymentMethods.length > 0,
+        paymentSetupSkipped: paymentMethods.length === 0,
+        paymentSetupCompletedAt: new Date(),
+        onboardingStep: 'payment_completed'
+      };
+      
+      if (existingProfile && existingProfile.length > 0) {
+        // Update existing profile
+        await FreelanceFirestoreService.update('users', existingProfile[0].id, paymentData);
+      } else {
+        // Create new profile (shouldn't happen in normal flow)
+        await FreelanceFirestoreService.create('users', {
+          userId: currentUser.uid,
+          email: currentUser.email,
+          userType: 'client',
+          ...paymentData,
+          isActive: true
+        });
+      }
+      
+      // Pass the data to the next step
+      onNext({
+        paymentMethods,
+        paymentSetupCompleted: paymentMethods.length > 0,
+        paymentSaved: true,
+        userId: currentUser.uid
+      });
+      
+    } catch (error) {
+      console.error('Error saving payment setup:', error);
+      setFirebaseErrors({ 
+        submit: 'Failed to save payment setup. Please try again.' 
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -312,19 +593,33 @@ const ClientPaymentStep: React.FC<ClientPaymentStepProps> = ({
               <label htmlFor="cardNumber" className="block text-sm font-medium text-[#2E2E2E] mb-1">
                 Card Number
               </label>
-              <input
-                type="text"
-                id="cardNumber"
-                name="cardNumber"
-                value={newCard.cardNumber}
-                onChange={handleCardInputChange}
-                placeholder="1234 5678 9012 3456"
-                maxLength={19}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#FF6B00] focus:outline-none ${
-                  errors.cardNumber ? 'border-[#FF6B00]' : 'border-[#ffeee3]'
-                }`}
-                aria-invalid={!!errors.cardNumber}
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  id="cardNumber"
+                  name="cardNumber"
+                  value={newCard.cardNumber}
+                  onChange={handleCardInputChange}
+                  placeholder="1234 5678 9012 3456"
+                  maxLength={19}
+                  className={`w-full px-4 py-2 pr-16 border rounded-lg focus:ring-2 focus:ring-[#FF6B00] focus:outline-none ${
+                    errors.cardNumber ? 'border-red-500' : 
+                    newCard.cardNumber && getCardBrand(newCard.cardNumber).isValid ? 'border-green-500' :
+                    'border-[#ffeee3]'
+                  }`}
+                  aria-invalid={!!errors.cardNumber}
+                />
+                {/* Card brand indicator */}
+                {newCard.cardNumber && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <span className={`text-xs font-bold px-2 py-1 rounded ${
+                      getCardBrand(newCard.cardNumber).isValid ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      {getCardBrand(newCard.cardNumber).brand.toUpperCase()}
+                    </span>
+                  </div>
+                )}
+              </div>
               {errors.cardNumber && <p className="mt-1 text-sm text-[#FF6B00]">{errors.cardNumber}</p>}
             </div>
             
@@ -339,8 +634,11 @@ const ClientPaymentStep: React.FC<ClientPaymentStepProps> = ({
                 value={newCard.cardholderName}
                 onChange={handleCardInputChange}
                 placeholder="John Smith"
+                maxLength={50}
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#FF6B00] focus:outline-none ${
-                  errors.cardholderName ? 'border-[#FF6B00]' : 'border-[#ffeee3]'
+                  errors.cardholderName ? 'border-red-500' : 
+                  newCard.cardholderName && newCard.cardholderName.length >= 2 ? 'border-green-500' :
+                  'border-[#ffeee3]'
                 }`}
                 aria-invalid={!!errors.cardholderName}
               />
@@ -395,6 +693,7 @@ const ClientPaymentStep: React.FC<ClientPaymentStepProps> = ({
                     {errors.expiryYear && <p className="mt-1 text-xs text-[#FF6B00]">{errors.expiryYear}</p>}
                   </div>
                 </div>
+                {errors.expiryDate && <p className="mt-1 text-sm text-[#FF6B00]">{errors.expiryDate}</p>}
               </div>
               
               <div>
@@ -407,10 +706,12 @@ const ClientPaymentStep: React.FC<ClientPaymentStepProps> = ({
                   name="cvv"
                   value={newCard.cvv}
                   onChange={handleCardInputChange}
-                  placeholder="123"
-                  maxLength={4}
+                  placeholder={getCardBrand(newCard.cardNumber).brand === 'American Express' ? '1234' : '123'}
+                  maxLength={getCardBrand(newCard.cardNumber).brand === 'American Express' ? 4 : 3}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#FF6B00] focus:outline-none ${
-                    errors.cvv ? 'border-[#FF6B00]' : 'border-[#ffeee3]'
+                    errors.cvv ? 'border-red-500' : 
+                    newCard.cvv && validateCVV(newCard.cvv, getCardBrand(newCard.cardNumber).brand) ? 'border-green-500' :
+                    'border-[#ffeee3]'
                   }`}
                   aria-invalid={!!errors.cvv}
                 />
@@ -439,8 +740,8 @@ const ClientPaymentStep: React.FC<ClientPaymentStepProps> = ({
             
             <button
               onClick={handleAddCard}
-              disabled={isSubmitting}
-              className="w-full mt-4 bg-[#FF6B00] hover:bg-[#FF9F45] disabled:bg-[#FF6B00] text-white font-medium py-3 rounded-lg transition-colors duration-200 flex items-center justify-center"
+              disabled={isSubmitting || (!!newCard.cardNumber && getCardBrand(newCard.cardNumber).brand === 'Unknown')}
+              className="w-full mt-4 bg-[#FF6B00] hover:bg-[#FF9F45] disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium py-3 rounded-lg transition-colors duration-200 flex items-center justify-center"
             >
               {isSubmitting ? (
                 <>
@@ -458,19 +759,38 @@ const ClientPaymentStep: React.FC<ClientPaymentStepProps> = ({
         </div>
       )}
       
+      {/* Firebase Errors Display */}
+      {(firebaseErrors.card || firebaseErrors.remove || firebaseErrors.default || firebaseErrors.submit) && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          {firebaseErrors.card && <p className="text-red-700 text-sm mb-2">{firebaseErrors.card}</p>}
+          {firebaseErrors.remove && <p className="text-red-700 text-sm mb-2">{firebaseErrors.remove}</p>}
+          {firebaseErrors.default && <p className="text-red-700 text-sm mb-2">{firebaseErrors.default}</p>}
+          {firebaseErrors.submit && <p className="text-red-700 text-sm">{firebaseErrors.submit}</p>}
+        </div>
+      )}
+      
       {/* Navigation buttons */}
       <div className="mt-8 flex flex-col md:flex-row gap-4">
         <button
           onClick={onBack}
-          className="order-2 md:order-1 w-full md:w-auto border border-[#ffeee3] text-[#2E2E2E] hover:bg-[#ffeee3] font-medium px-8 py-3 rounded-lg transition-colors duration-300"
+          disabled={loading || isSubmitting}
+          className="order-2 md:order-1 w-full md:w-auto border border-[#ffeee3] text-[#2E2E2E] hover:bg-[#ffeee3] font-medium px-8 py-3 rounded-lg transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Back
         </button>
         <button
           onClick={handleSubmit}
-          className="order-1 md:order-2 w-full md:flex-1 bg-[#FF6B00] hover:bg-[#FF9F45] text-white font-medium px-8 py-3 rounded-lg transition-colors duration-300"
+          disabled={loading || isSubmitting}
+          className="order-1 md:order-2 w-full md:flex-1 bg-[#FF6B00] hover:bg-[#FF9F45] text-white font-medium px-8 py-3 rounded-lg transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
-          {paymentMethods.length > 0 ? 'Save & Continue' : 'Skip for Now'}
+          {loading ? (
+            <>
+              <Loader className="animate-spin" size={20} />
+              Saving Payment Setup...
+            </>
+          ) : (
+            paymentMethods.length > 0 ? 'Save & Continue' : 'Skip for Now'
+          )}
         </button>
       </div>
     </div>

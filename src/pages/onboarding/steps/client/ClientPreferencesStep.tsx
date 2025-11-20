@@ -1,5 +1,7 @@
 ﻿import React, { useState } from 'react';
-import { Check, X } from 'lucide-react';
+import { Check, X, Loader } from 'lucide-react';
+import { useAuth } from '../../../../contexts/AuthContext';
+import { FreelanceFirestoreService } from '../../../../lib/firestoreService';
 
 interface ClientPreferencesStepProps {
   user: any;
@@ -17,6 +19,9 @@ const ClientPreferencesStep: React.FC<ClientPreferencesStepProps> = ({
   onNext, 
   onBack 
 }) => {
+  const { currentUser } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   // Sample categories and skills
   const categories: Category[] = [
     { 
@@ -121,16 +126,74 @@ const ClientPreferencesStep: React.FC<ClientPreferencesStepProps> = ({
     return categories.find(cat => cat.id === activeCategory)?.skills || [];
   };
 
-  const handleSubmit = () => {
-    const preferences = {
-      categories: selectedCategories.map(catId => categories.find(cat => cat.id === catId)?.name),
-      skills: selectedSkills,
-      budgetRanges: selectedBudgetRanges.map(budgetId => budgetRanges.find(budget => budget.id === budgetId)),
-      projectTypes: selectedProjectTypes,
-      customRequirements
-    };
+  const handleSubmit = async () => {
+    if (!currentUser) {
+      setErrors({ submit: 'You must be logged in to continue' });
+      return;
+    }
+
+    setLoading(true);
+    setErrors({});
     
-    onNext(preferences);
+    try {
+      const preferences = {
+        categories: selectedCategories.map(catId => {
+          const category = categories.find(cat => cat.id === catId);
+          return { id: catId, name: category?.name };
+        }),
+        skills: selectedSkills,
+        budgetRanges: selectedBudgetRanges.map(budgetId => {
+          const budget = budgetRanges.find(budget => budget.id === budgetId);
+          return {
+            id: budgetId,
+            name: budget?.name,
+            min: budget?.min,
+            max: budget?.max,
+            description: budget?.description
+          };
+        }),
+        projectTypes: selectedProjectTypes,
+        customRequirements,
+        preferencesCompleted: true,
+        preferencesCompletedAt: new Date()
+      };
+
+      // Get existing user profile
+      const existingProfile = await FreelanceFirestoreService.getUserProfile(currentUser.uid);
+      
+      if (existingProfile && existingProfile.length > 0) {
+        // Update existing profile with preferences
+        await FreelanceFirestoreService.update('users', existingProfile[0].id, {
+          preferences,
+          onboardingStep: 'preferences_completed'
+        });
+      } else {
+        // Create new profile with preferences (shouldn't happen in normal flow)
+        await FreelanceFirestoreService.create('users', {
+          userId: currentUser.uid,
+          email: currentUser.email,
+          userType: 'client',
+          preferences,
+          onboardingStep: 'preferences_completed',
+          isActive: true
+        });
+      }
+
+      // Pass the data to the next step
+      onNext({
+        ...preferences,
+        preferencesSaved: true,
+        userId: currentUser.uid
+      });
+      
+    } catch (error) {
+      console.error('Error saving client preferences:', error);
+      setErrors({ 
+        submit: 'Failed to save preferences. Please try again.' 
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -312,19 +375,35 @@ const ClientPreferencesStep: React.FC<ClientPreferencesStepProps> = ({
         />
       </div>
       
+      {/* Error Display */}
+      {errors.submit && (
+        <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-red-700 text-sm">{errors.submit}</p>
+        </div>
+      )}
+      
       {/* Navigation buttons */}
       <div className="mt-8 flex flex-col md:flex-row gap-4">
         <button
           onClick={onBack}
-          className="order-2 md:order-1 w-full md:w-auto border border-[#ffeee3] text-[#2E2E2E] hover:bg-[#ffeee3] font-medium px-8 py-3 rounded-lg transition-colors duration-300"
+          disabled={loading}
+          className="order-2 md:order-1 w-full md:w-auto border border-[#ffeee3] text-[#2E2E2E] hover:bg-[#ffeee3] font-medium px-8 py-3 rounded-lg transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Back
         </button>
         <button
           onClick={handleSubmit}
-          className="order-1 md:order-2 w-full md:flex-1 bg-[#FF6B00] hover:bg-[#FF9F45] text-white font-medium px-8 py-3 rounded-lg transition-colors duration-300"
+          disabled={loading}
+          className="order-1 md:order-2 w-full md:flex-1 bg-[#FF6B00] hover:bg-[#FF9F45] text-white font-medium px-8 py-3 rounded-lg transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
-          Save & Continue
+          {loading ? (
+            <>
+              <Loader className="animate-spin" size={20} />
+              Saving Preferences...
+            </>
+          ) : (
+            'Save & Continue'
+          )}
         </button>
       </div>
     </div>
