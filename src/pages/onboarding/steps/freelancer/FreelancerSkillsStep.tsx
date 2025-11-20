@@ -1,5 +1,6 @@
 ﻿import React, { useState } from 'react';
 import { Search, Plus, X, Trash2 } from 'lucide-react';
+import { FreelanceFirestoreService } from '../../../../lib/firestoreService';
 
 interface FreelancerSkillsStepProps {
   user: any;
@@ -40,34 +41,72 @@ const FreelancerSkillsStep: React.FC<FreelancerSkillsStepProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState(skillCategories[0].id);
   const [customSkill, setCustomSkill] = useState('');
-  const [errors, setErrors] = useState({ skills: '' });
+  const [errors, setErrors] = useState({ skills: '', submit: '' });
   const [showAnimation, setShowAnimation] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Auto-save skills to Firebase (debounced)
+  const autoSaveSkills = async (skills: string[], levels: Record<string, number>) => {
+    try {
+      const userId = localStorage.getItem('userId');
+      if (userId && skills.length > 0) {
+        const skillsData = skills.map(skill => ({
+          name: skill,
+          level: levels[skill],
+          levelLabel: getSkillLevelLabel(levels[skill])
+        }));
+
+        const quickUpdate = {
+          skills: skillsData,
+          selectedSkillsCount: skills.length,
+          lastSkillUpdate: new Date()
+        };
+
+        // Save to Firebase without blocking UI
+        await FreelanceFirestoreService.updateUserProfile(userId, quickUpdate);
+      }
+    } catch (error) {
+      console.error('Auto-save skills error:', error);
+      // Don't show error to user for auto-save failures
+    }
+  };
 
   const handleSkillSelection = (skill: string) => {
+    let updatedSkills: string[];
+    let updatedLevels: Record<string, number>;
+
     if (selectedSkills.includes(skill)) {
       // Remove the skill
-      const updatedSkills = selectedSkills.filter(s => s !== skill);
+      updatedSkills = selectedSkills.filter(s => s !== skill);
       setSelectedSkills(updatedSkills);
       
       // Remove the skill level
-      const updatedLevels = { ...skillLevels };
+      updatedLevels = { ...skillLevels };
       delete updatedLevels[skill];
       setSkillLevels(updatedLevels);
     } else {
       // Add the skill with default level
       if (selectedSkills.length < 15) {
-        setSelectedSkills([...selectedSkills, skill]);
-        setSkillLevels({ ...skillLevels, [skill]: 3 }); // Default to Intermediate (3)
+        updatedSkills = [...selectedSkills, skill];
+        updatedLevels = { ...skillLevels, [skill]: 3 }; // Default to Intermediate (3)
+        
+        setSelectedSkills(updatedSkills);
+        setSkillLevels(updatedLevels);
         
         // Show animation
         setShowAnimation(true);
         setTimeout(() => setShowAnimation(false), 500);
+      } else {
+        return; // Don't proceed if limit reached
       }
     }
     
+    // Auto-save to Firebase
+    setTimeout(() => autoSaveSkills(updatedSkills, updatedLevels), 1000);
+    
     // Clear any error when the user selects skills
     if (errors.skills) {
-      setErrors({ ...errors, skills: '' });
+      setErrors({ ...errors, skills: '', submit: '' });
     }
   };
 
@@ -75,27 +114,60 @@ const FreelancerSkillsStep: React.FC<FreelancerSkillsStepProps> = ({
     if (customSkill.trim() && !selectedSkills.includes(customSkill.trim())) {
       if (selectedSkills.length < 15) {
         const trimmedSkill = customSkill.trim();
-        setSelectedSkills([...selectedSkills, trimmedSkill]);
-        setSkillLevels({ ...skillLevels, [trimmedSkill]: 3 }); // Default to Intermediate
+        const updatedSkills = [...selectedSkills, trimmedSkill];
+        const updatedLevels = { ...skillLevels, [trimmedSkill]: 3 }; // Default to Intermediate
+        
+        setSelectedSkills(updatedSkills);
+        setSkillLevels(updatedLevels);
         setCustomSkill('');
+        
+        // Auto-save to Firebase
+        setTimeout(() => autoSaveSkills(updatedSkills, updatedLevels), 1000);
+        
+        // Show animation
+        setShowAnimation(true);
+        setTimeout(() => setShowAnimation(false), 500);
       }
     }
   };
 
   const handleSkillLevelChange = (skill: string, level: number) => {
-    setSkillLevels({ ...skillLevels, [skill]: level });
+    const updatedLevels = { ...skillLevels, [skill]: level };
+    setSkillLevels(updatedLevels);
+    
+    // Auto-save to Firebase with debounce
+    setTimeout(() => autoSaveSkills(selectedSkills, updatedLevels), 1000);
   };
 
   const handleRemoveSkill = (skill: string) => {
-    setSelectedSkills(selectedSkills.filter(s => s !== skill));
+    const updatedSkills = selectedSkills.filter(s => s !== skill);
     const updatedLevels = { ...skillLevels };
     delete updatedLevels[skill];
+    
+    setSelectedSkills(updatedSkills);
     setSkillLevels(updatedLevels);
+    
+    // Auto-save to Firebase
+    setTimeout(() => autoSaveSkills(updatedSkills, updatedLevels), 1000);
   };
 
-  const handleClearAllSkills = () => {
+  const handleClearAllSkills = async () => {
     setSelectedSkills([]);
     setSkillLevels({});
+    
+    // Clear skills from Firebase
+    try {
+      const userId = localStorage.getItem('userId');
+      if (userId) {
+        await FreelanceFirestoreService.updateUserProfile(userId, {
+          skills: [],
+          selectedSkillsCount: 0,
+          lastSkillUpdate: new Date()
+        });
+      }
+    } catch (error) {
+      console.error('Error clearing skills from Firebase:', error);
+    }
   };
 
   const getFilteredSkills = () => {
@@ -111,7 +183,7 @@ const FreelancerSkillsStep: React.FC<FreelancerSkillsStepProps> = ({
   };
 
   const validateForm = () => {
-    const newErrors = { skills: '' };
+    const newErrors = { skills: '', submit: '' };
     
     if (selectedSkills.length === 0) {
       newErrors.skills = 'Please select at least one skill';
@@ -121,14 +193,53 @@ const FreelancerSkillsStep: React.FC<FreelancerSkillsStepProps> = ({
     return !newErrors.skills;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (validateForm()) {
-      const skillsData = selectedSkills.map(skill => ({
-        name: skill,
-        level: skillLevels[skill]
-      }));
+      setSaving(true);
       
-      onNext({ skills: skillsData });
+      try {
+        // Get user ID from localStorage
+        const userId = localStorage.getItem('userId');
+        
+        if (userId) {
+          // Prepare skills data for Firebase
+          const skillsData = selectedSkills.map(skill => ({
+            name: skill,
+            level: skillLevels[skill],
+            levelLabel: getSkillLevelLabel(skillLevels[skill])
+          }));
+
+          // Prepare data to save
+          const skillsUpdate = {
+            skills: skillsData,
+            selectedSkillsCount: selectedSkills.length,
+            skillCategories: skillCategories.map(cat => ({
+              ...cat,
+              selectedSkills: skillsData.filter(skill => 
+                cat.skills.includes(skill.name)
+              ).length
+            })),
+            skillsStep: 'completed',
+            updatedAt: new Date()
+          };
+
+          // Update user profile in Firestore
+          await FreelanceFirestoreService.updateUserProfile(userId, skillsUpdate);
+          
+          // Pass data to next step
+          onNext({ skills: skillsData });
+        } else {
+          throw new Error('User ID not found');
+        }
+      } catch (error) {
+        console.error('Error saving skills:', error);
+        setErrors({ 
+          ...errors, 
+          submit: 'Failed to save skills. Please try again.' 
+        });
+      } finally {
+        setSaving(false);
+      }
     }
   };
 
@@ -220,7 +331,7 @@ const FreelancerSkillsStep: React.FC<FreelancerSkillsStepProps> = ({
           </div>
         ) : (
           <div className="bg-[#ffeee3] p-6 rounded-lg border border-dashed border-[#ffeee3] text-center">
-            <p className="text-[#ffeee3]">No skills selected yet. Select skills from below or add custom skills.</p>
+            <p className="text-black">No skills selected yet. Select skills from below or add custom skills.</p>
           </div>
         )}
         
@@ -324,20 +435,36 @@ const FreelancerSkillsStep: React.FC<FreelancerSkillsStepProps> = ({
           )}
         </div>
       </div>
+
+      {/* Submit Error */}
+      {errors.submit && (
+        <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+          <p className="text-sm font-medium">{errors.submit}</p>
+        </div>
+      )}
       
       {/* Navigation buttons */}
       <div className="mt-8 flex flex-col md:flex-row gap-4">
         <button
           onClick={onBack}
-          className="order-2 md:order-1 w-full md:w-auto border border-[#ffeee3] text-[#2E2E2E] hover:bg-[#ffeee3] font-medium px-8 py-3 rounded-lg transition-colors duration-300"
+          disabled={saving}
+          className="order-2 md:order-1 w-full md:w-auto border border-[#ffeee3] text-[#2E2E2E] hover:bg-[#ffeee3] font-medium px-8 py-3 rounded-lg transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Back
         </button>
         <button
           onClick={handleSubmit}
-          className="order-1 md:order-2 w-full md:flex-1 bg-[#FF6B00] hover:bg-[#FF9F45] text-white font-medium px-8 py-3 rounded-lg transition-colors duration-300"
+          disabled={saving}
+          className="order-1 md:order-2 w-full md:flex-1 bg-[#FF6B00] hover:bg-[#FF9F45] text-white font-medium px-8 py-3 rounded-lg transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Save & Continue
+          {saving ? (
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              Saving Skills...
+            </div>
+          ) : (
+            'Save & Continue'
+          )}
         </button>
       </div>
     </div>

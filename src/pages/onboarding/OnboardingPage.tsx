@@ -5,7 +5,6 @@ import OTPVerificationStep from './steps/OTPVerificationStep';
 import FreelancerProfileStep from './steps/freelancer/FreelancerProfileStep';
 import FreelancerSkillsStep from './steps/freelancer/FreelancerSkillsStep';
 import FreelancerPortfolioStep from './steps/freelancer/FreelancerPortfolioStep';
-import FreelancerServicesStep from './steps/freelancer/FreelancerServicesStep';
 import ClientProfileStep from './steps/client/ClientProfileStep';
 import ClientPreferencesStep from './steps/client/ClientPreferencesStep';
 import ClientPaymentStep from './steps/client/ClientPaymentStep';
@@ -40,7 +39,6 @@ const OnboardingPage: React.FC = () => {
     { id: 'profile', title: 'Complete Profile', component: FreelancerProfileStep as React.ComponentType<any> },
     { id: 'skills', title: 'Skills', component: FreelancerSkillsStep as React.ComponentType<any> },
     { id: 'portfolio', title: 'Portfolio', component: FreelancerPortfolioStep as React.ComponentType<any> },
-    { id: 'services', title: 'Services', component: FreelancerServicesStep as React.ComponentType<any> },
     { id: 'complete', title: 'Complete', component: OnboardingComplete as React.ComponentType<any> },
   ];
 

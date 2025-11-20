@@ -1,5 +1,6 @@
 ﻿import React, { useState } from 'react';
 import { Upload, X } from 'lucide-react';
+import { FreelanceFirestoreService } from '../../../../lib/firestoreService';
 
 interface FreelancerProfileStepProps {
   user: any;
@@ -21,10 +22,13 @@ const FreelancerProfileStep: React.FC<FreelancerProfileStepProps> = ({
     experience: [{ title: '', company: '', location: '', from: '', to: '', current: false, description: '' }],
     hourlyRate: '',
     profilePicture: null as File | null,
-    profilePicturePreview: '' as string
+    profilePicturePreview: '' as string,
+    profilePictureUrl: '' as string
   });
   
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -39,7 +43,7 @@ const FreelancerProfileStep: React.FC<FreelancerProfileStepProps> = ({
   const handleEducationChange = (index: number, e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     const newEducation = [...formData.education];
-    newEducation[index] = { ...newEducation[index], [name.split('.')[1]]: value };
+    newEducation[index] = { ...newEducation[index], [name]: value };
     setFormData({ ...formData, education: newEducation });
   };
 
@@ -58,15 +62,14 @@ const FreelancerProfileStep: React.FC<FreelancerProfileStepProps> = ({
 
   const handleExperienceChange = (index: number, e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-    const fieldName = name.split('.')[1];
     
     const newExperience = [...formData.experience];
     
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
-      newExperience[index] = { ...newExperience[index], [fieldName]: checked };
+      newExperience[index] = { ...newExperience[index], [name]: checked };
     } else {
-      newExperience[index] = { ...newExperience[index], [fieldName]: value };
+      newExperience[index] = { ...newExperience[index], [name]: value };
     }
     
     setFormData({ ...formData, experience: newExperience });
@@ -85,14 +88,56 @@ const FreelancerProfileStep: React.FC<FreelancerProfileStepProps> = ({
     setFormData({ ...formData, experience: newExperience });
   };
 
-  const handleProfilePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const uploadToImageBB = async (file: File): Promise<string> => {
+    const API_KEY = 'af89815a37ad8b0ac30f6e34839d6735';
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('key', API_KEY);
+
+    try {
+      const response = await fetch('https://api.imgbb.com/1/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        return result.data.url;
+      } else {
+        throw new Error('Failed to upload image');
+      }
+    } catch (error) {
+      console.error('ImageBB upload error:', error);
+      throw error;
+    }
+  };
+
+  const handleProfilePictureChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      setFormData({
-        ...formData,
-        profilePicture: file,
-        profilePicturePreview: URL.createObjectURL(file)
-      });
+      setUploading(true);
+      
+      try {
+        // Upload to ImageBB
+        const imageUrl = await uploadToImageBB(file);
+        
+        setFormData({
+          ...formData,
+          profilePicture: file,
+          profilePicturePreview: URL.createObjectURL(file),
+          profilePictureUrl: imageUrl
+        });
+        
+        // Clear any previous upload errors
+        if (errors.profilePicture) {
+          setErrors({ ...errors, profilePicture: '' });
+        }
+      } catch (error) {
+        setErrors({ ...errors, profilePicture: 'Failed to upload image. Please try again.' });
+      } finally {
+        setUploading(false);
+      }
     }
   };
 
@@ -100,7 +145,8 @@ const FreelancerProfileStep: React.FC<FreelancerProfileStepProps> = ({
     setFormData({
       ...formData,
       profilePicture: null,
-      profilePicturePreview: ''
+      profilePicturePreview: '',
+      profilePictureUrl: ''
     });
   };
 
@@ -133,9 +179,51 @@ const FreelancerProfileStep: React.FC<FreelancerProfileStepProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (validateForm()) {
-      onNext(formData);
+      setSaving(true);
+      
+      try {
+        // Get user ID from localStorage
+        const userId = localStorage.getItem('userId');
+        
+        if (userId) {
+          // Prepare profile data for Firebase
+          const profileData = {
+            fullName: formData.fullName,
+            profileTitle: formData.profileTitle,
+            bio: formData.bio,
+            location: formData.location,
+            hourlyRate: parseFloat(formData.hourlyRate) || 0,
+            profilePictureUrl: formData.profilePictureUrl,
+            education: formData.education.filter(edu => 
+              edu.school && edu.degree && edu.fieldOfStudy && edu.graduationYear
+            ),
+            experience: formData.experience.filter(exp => 
+              exp.title && exp.company && exp.from
+            ),
+            profileCompleted: true,
+            profileStep: 'completed',
+            updatedAt: new Date()
+          };
+
+          // Update user profile in Firestore
+          await FreelanceFirestoreService.updateUserProfile(userId, profileData);
+          
+          // Pass data to next step
+          onNext({ ...formData, ...profileData });
+        } else {
+          throw new Error('User ID not found');
+        }
+      } catch (error) {
+        console.error('Error saving profile:', error);
+        setErrors({ 
+          ...errors, 
+          submit: 'Failed to save profile. Please try again.' 
+        });
+      } finally {
+        setSaving(false);
+      }
     } else {
       // Scroll to first error
       const firstErrorField = document.querySelector('[aria-invalid="true"]');
@@ -162,26 +250,50 @@ const FreelancerProfileStep: React.FC<FreelancerProfileStepProps> = ({
                 />
                 <button 
                   onClick={removeProfilePicture}
-                  className="absolute top-0 right-0 bg-[#FF6B00] text-white p-1 rounded-full"
+                  className="absolute top-0 right-0 bg-[#FF6B00] text-white p-1 rounded-full hover:bg-[#FF9F45] transition-colors"
+                  disabled={uploading}
                 >
                   <X size={16} />
                 </button>
+                {uploading && (
+                  <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
+                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
               </div>
             ) : (
-              <div className="w-full h-full rounded-full bg-[#ffeee3] flex items-center justify-center border-2 border-dashed border-[#ffeee3]">
-                <label className="cursor-pointer flex flex-col items-center justify-center w-full h-full">
-                  <Upload size={24} className="text-[#ffeee3]" />
-                  <span className="text-xs text-[#ffeee3] mt-1">Upload</span>
+              <div className="w-full h-full rounded-full bg-[#ffeee3] flex items-center justify-center border-2 border-dashed border-[#FF6B00] hover:border-[#FF9F45] transition-colors">
+                <label className="cursor-pointer flex flex-col items-center justify-center w-full h-full text-center p-2">
+                  {uploading ? (
+                    <>
+                      <div className="w-6 h-6 border-2 border-[#FF6B00] border-t-transparent rounded-full animate-spin mb-2"></div>
+                      <span className="text-xs text-[#FF6B00] font-medium">Uploading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload size={24} className="text-[#FF6B00] mb-1" />
+                      <span className="text-xs text-[#FF6B00] font-medium">Upload</span>
+                      <span className="text-xs text-[#FF6B00]">Profile</span>
+                    </>
+                  )}
                   <input 
                     type="file" 
                     className="hidden" 
                     accept="image/*" 
                     onChange={handleProfilePictureChange}
+                    disabled={uploading}
                   />
                 </label>
               </div>
             )}
           </div>
+          
+          {/* Profile Picture Error */}
+          {errors.profilePicture && (
+            <div className="text-red-500 text-sm mt-2">
+              {errors.profilePicture}
+            </div>
+          )}
           
           <div className="flex-1">
             <h3 className="text-lg font-medium mb-2">Profile Details</h3>
@@ -322,7 +434,7 @@ const FreelancerProfileStep: React.FC<FreelancerProfileStepProps> = ({
                   <input
                     type="text"
                     id={`education.${index}.school`}
-                    name={`education.${index}.school`}
+                    name="school"
                     value={edu.school}
                     onChange={(e) => handleEducationChange(index, e)}
                     className="w-full px-4 py-2 border border-[#ffeee3] rounded-lg focus:ring-2 focus:ring-[#FF6B00] focus:outline-none"
@@ -336,7 +448,7 @@ const FreelancerProfileStep: React.FC<FreelancerProfileStepProps> = ({
                   <input
                     type="text"
                     id={`education.${index}.degree`}
-                    name={`education.${index}.degree`}
+                    name="degree"
                     value={edu.degree}
                     onChange={(e) => handleEducationChange(index, e)}
                     className="w-full px-4 py-2 border border-[#ffeee3] rounded-lg focus:ring-2 focus:ring-[#FF6B00] focus:outline-none"
@@ -350,7 +462,7 @@ const FreelancerProfileStep: React.FC<FreelancerProfileStepProps> = ({
                   <input
                     type="text"
                     id={`education.${index}.fieldOfStudy`}
-                    name={`education.${index}.fieldOfStudy`}
+                    name="fieldOfStudy"
                     value={edu.fieldOfStudy}
                     onChange={(e) => handleEducationChange(index, e)}
                     className="w-full px-4 py-2 border border-[#ffeee3] rounded-lg focus:ring-2 focus:ring-[#FF6B00] focus:outline-none"
@@ -364,7 +476,7 @@ const FreelancerProfileStep: React.FC<FreelancerProfileStepProps> = ({
                   <input
                     type="text"
                     id={`education.${index}.graduationYear`}
-                    name={`education.${index}.graduationYear`}
+                    name="graduationYear"
                     value={edu.graduationYear}
                     onChange={(e) => handleEducationChange(index, e)}
                     className="w-full px-4 py-2 border border-[#ffeee3] rounded-lg focus:ring-2 focus:ring-[#FF6B00] focus:outline-none"
@@ -412,7 +524,7 @@ const FreelancerProfileStep: React.FC<FreelancerProfileStepProps> = ({
                   <input
                     type="text"
                     id={`experience.${index}.title`}
-                    name={`experience.${index}.title`}
+                    name="title"
                     value={exp.title}
                     onChange={(e) => handleExperienceChange(index, e)}
                     className="w-full px-4 py-2 border border-[#ffeee3] rounded-lg focus:ring-2 focus:ring-[#FF6B00] focus:outline-none"
@@ -426,7 +538,7 @@ const FreelancerProfileStep: React.FC<FreelancerProfileStepProps> = ({
                   <input
                     type="text"
                     id={`experience.${index}.company`}
-                    name={`experience.${index}.company`}
+                    name="company"
                     value={exp.company}
                     onChange={(e) => handleExperienceChange(index, e)}
                     className="w-full px-4 py-2 border border-[#ffeee3] rounded-lg focus:ring-2 focus:ring-[#FF6B00] focus:outline-none"
@@ -440,7 +552,7 @@ const FreelancerProfileStep: React.FC<FreelancerProfileStepProps> = ({
                   <input
                     type="text"
                     id={`experience.${index}.location`}
-                    name={`experience.${index}.location`}
+                    name="location"
                     value={exp.location}
                     onChange={(e) => handleExperienceChange(index, e)}
                     className="w-full px-4 py-2 border border-[#ffeee3] rounded-lg focus:ring-2 focus:ring-[#FF6B00] focus:outline-none"
@@ -451,7 +563,7 @@ const FreelancerProfileStep: React.FC<FreelancerProfileStepProps> = ({
                   <input
                     type="checkbox"
                     id={`experience.${index}.current`}
-                    name={`experience.${index}.current`}
+                    name="current"
                     checked={exp.current}
                     onChange={(e) => handleExperienceChange(index, e)}
                     className="h-4 w-4 text-[#FF6B00] border-[#ffeee3] rounded"
@@ -468,7 +580,7 @@ const FreelancerProfileStep: React.FC<FreelancerProfileStepProps> = ({
                   <input
                     type="month"
                     id={`experience.${index}.from`}
-                    name={`experience.${index}.from`}
+                    name="from"
                     value={exp.from}
                     onChange={(e) => handleExperienceChange(index, e)}
                     className="w-full px-4 py-2 border border-[#ffeee3] rounded-lg focus:ring-2 focus:ring-[#FF6B00] focus:outline-none"
@@ -483,7 +595,7 @@ const FreelancerProfileStep: React.FC<FreelancerProfileStepProps> = ({
                     <input
                       type="month"
                       id={`experience.${index}.to`}
-                      name={`experience.${index}.to`}
+                      name="to"
                       value={exp.to}
                       onChange={(e) => handleExperienceChange(index, e)}
                       className="w-full px-4 py-2 border border-[#ffeee3] rounded-lg focus:ring-2 focus:ring-[#FF6B00] focus:outline-none"
@@ -498,7 +610,7 @@ const FreelancerProfileStep: React.FC<FreelancerProfileStepProps> = ({
                 </label>
                 <textarea
                   id={`experience.${index}.description`}
-                  name={`experience.${index}.description`}
+                  name="description"
                   value={exp.description}
                   onChange={(e) => handleExperienceChange(index, e)}
                   rows={3}
@@ -521,19 +633,35 @@ const FreelancerProfileStep: React.FC<FreelancerProfileStepProps> = ({
         </div>
       </div>
 
+      {/* Submit Error */}
+      {errors.submit && (
+        <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+          <p className="text-sm font-medium">{errors.submit}</p>
+        </div>
+      )}
+
       {/* Navigation buttons */}
       <div className="mt-8 flex flex-col md:flex-row gap-4">
         <button
           onClick={onBack}
-          className="order-2 md:order-1 w-full md:w-auto border border-[#ffeee3] text-[#2E2E2E] hover:bg-[#ffeee3] font-medium px-8 py-3 rounded-lg transition-colors duration-300"
+          disabled={saving}
+          className="order-2 md:order-1 w-full md:w-auto border border-[#ffeee3] text-[#2E2E2E] hover:bg-[#ffeee3] font-medium px-8 py-3 rounded-lg transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Back
         </button>
         <button
           onClick={handleSubmit}
-          className="order-1 md:order-2 w-full md:flex-1 bg-[#FF6B00] hover:bg-[#FF9F45] text-white font-medium px-8 py-3 rounded-lg transition-colors duration-300"
+          disabled={saving || uploading}
+          className="order-1 md:order-2 w-full md:flex-1 bg-[#FF6B00] hover:bg-[#FF9F45] text-white font-medium px-8 py-3 rounded-lg transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Save & Continue
+          {saving ? (
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              Saving Profile...
+            </div>
+          ) : (
+            'Save & Continue'
+          )}
         </button>
       </div>
     </div>

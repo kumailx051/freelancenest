@@ -15,17 +15,12 @@ const OnboardingComplete: React.FC<OnboardingCompleteProps> = ({
   const navigate = useNavigate();
   const accountType = user.accountType;
 
-  const handleGoToDashboard = () => {
-    // Navigate to the appropriate dashboard based on account type
-    if (accountType === 'client') {
-      navigate('/client/dashboard');
-    } else if (accountType === 'freelancer') {
-      // Navigate to the FreelancerDashboard for freelancers
-      navigate('/freelancer/dashboard');
-    } else {
-      // Fallback for any other account types
-      navigate('/dashboard');
-    }
+  const handleLoginToAccount = () => {
+    // Clear any temporary onboarding data from localStorage
+    localStorage.removeItem('onboardingComplete');
+    
+    // Navigate to the login page
+    navigate('/login');
   };
   
   return (
@@ -103,10 +98,10 @@ const OnboardingComplete: React.FC<OnboardingCompleteProps> = ({
           Back
         </button>
         <button
-          onClick={handleGoToDashboard}
+          onClick={handleLoginToAccount}
           className="order-1 md:order-2 w-full md:flex-1 bg-[#FF6B00] hover:bg-[#FF9F45] text-white font-medium px-8 py-3 rounded-lg transition-colors duration-300 flex items-center justify-center"
         >
-          Go to Dashboard
+          Login Your Account
           <ArrowRight size={18} className="ml-2" />
         </button>
       </div>

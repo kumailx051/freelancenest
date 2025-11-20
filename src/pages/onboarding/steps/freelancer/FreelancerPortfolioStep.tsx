@@ -1,5 +1,6 @@
-﻿import React, { useState } from 'react';
-import { Upload, Plus, Trash2, X, ExternalLink, Camera, FileText, Image } from 'lucide-react';
+﻿import React, { useState, useEffect } from 'react';
+import { Upload, Plus, Trash2, X, ExternalLink, Camera, FileText } from 'lucide-react';
+import { FreelanceFirestoreService } from '../../../../lib/firestoreService';
 
 interface FreelancerPortfolioStepProps {
   user: any;
@@ -17,6 +18,7 @@ interface PortfolioItem {
 }
 
 const FreelancerPortfolioStep: React.FC<FreelancerPortfolioStepProps> = ({ 
+  user,
   onNext, 
   onBack 
 }) => {
@@ -35,6 +37,8 @@ const FreelancerPortfolioStep: React.FC<FreelancerPortfolioStepProps> = ({
   const [activeItem, setActiveItem] = useState<string>(portfolioItems[0].id);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState<boolean>(false);
+  const [saving, setSaving] = useState<boolean>(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
   // Categories for portfolio
   const categories = [
@@ -48,6 +52,67 @@ const FreelancerPortfolioStep: React.FC<FreelancerPortfolioStepProps> = ({
     { id: 'other', name: 'Other' }
   ];
 
+  // Auto-save portfolio to Firebase (debounced)
+  const autoSavePortfolio = async (portfolioData: PortfolioItem[]) => {
+    try {
+      const userId = user?.uid || localStorage.getItem('userId');
+      if (userId && portfolioData.length > 0) {
+        setSaving(true);
+        
+        // Filter out items that have meaningful data (title and either description or images)
+        const validItems = portfolioData.filter((item: PortfolioItem) => 
+          item.title.trim() || item.description.trim() || item.images.length > 0
+        );
+
+        const portfolioForFirestore = validItems.map((item: PortfolioItem) => ({
+          id: item.id,
+          title: item.title,
+          description: item.description,
+          category: item.category,
+          link: item.link || '',
+          images: item.images.map((img: { id: string; url: string }) => ({
+            id: img.id,
+            url: img.url
+          }))
+        }));
+
+        // Save to Firebase without blocking UI
+        await FreelanceFirestoreService.updateUserPortfolio(userId, portfolioForFirestore);
+        setLastSaved(new Date());
+      }
+    } catch (error) {
+      console.error('Auto-save portfolio error:', error);
+      // Don't show error to user for auto-save failures
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Load existing portfolio data on component mount
+  useEffect(() => {
+    const loadPortfolioData = async () => {
+      try {
+        const userId = user?.uid || localStorage.getItem('userId');
+        if (userId) {
+          const savedPortfolio = await FreelanceFirestoreService.getUserPortfolio(userId);
+          if (savedPortfolio && savedPortfolio.length > 0) {
+            const portfolioWithImages = savedPortfolio.map((item: any) => ({
+              ...item,
+              images: item.images || []
+            }));
+            
+            setPortfolioItems(portfolioWithImages);
+            setActiveItem(portfolioWithImages[0].id);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading portfolio data:', error);
+      }
+    };
+
+    loadPortfolioData();
+  }, [user]);
+
   const getCurrentItem = () => {
     return portfolioItems.find(item => item.id === activeItem) || portfolioItems[0];
   };
@@ -55,58 +120,105 @@ const FreelancerPortfolioStep: React.FC<FreelancerPortfolioStepProps> = ({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     
-    setPortfolioItems(prevItems => 
-      prevItems.map(item => 
-        item.id === activeItem ? { ...item, [name]: value } : item
-      )
+    const updatedItems = portfolioItems.map(item => 
+      item.id === activeItem ? { ...item, [name]: value } : item
     );
+    
+    setPortfolioItems(updatedItems);
     
     // Clear error for this field
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
+
+    // Auto-save after a short delay
+    setTimeout(() => autoSavePortfolio(updatedItems), 1000);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.length) return;
     
     setUploading(true);
     
-    // Simulate upload delay
-    setTimeout(() => {
+    try {
       const files = Array.from(e.target.files || []);
-      const newImages = files.map(file => ({
-        id: `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        url: URL.createObjectURL(file),
-        file
-      }));
-      
-      setPortfolioItems(prevItems => 
-        prevItems.map(item => 
+      const newImages: Array<{ id: string; url: string }> = [];
+
+      // Validate file types and sizes
+      const validFiles = files.filter(file => {
+        const isValidType = file.type.startsWith('image/');
+        const isValidSize = file.size <= 5 * 1024 * 1024; // 5MB limit
+        return isValidType && isValidSize;
+      });
+
+      if (validFiles.length === 0) {
+        throw new Error('Please select valid image files (max 5MB each)');
+      }
+
+      // Upload each image to ImageBB
+      for (const file of validFiles) {
+        if (newImages.length >= 5) break; // Limit to 5 images total
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        const response = await fetch(`https://api.imgbb.com/1/upload?key=46b63b5b6c2f3f7a0b7c4f8a4d2e1c9f`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          newImages.push({
+            id: `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            url: data.data.url,
+          });
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error?.message || 'Failed to upload image');
+        }
+      }
+
+      if (newImages.length > 0) {
+        const updatedItems = portfolioItems.map(item => 
           item.id === activeItem 
             ? { 
                 ...item, 
                 images: [...item.images, ...newImages].slice(0, 5) // Limit to 5 images
               } 
             : item
-        )
-      );
-      
+        );
+        
+        setPortfolioItems(updatedItems);
+        
+        // Auto-save after image upload
+        setTimeout(() => autoSavePortfolio(updatedItems), 500);
+      }
+    } catch (error) {
+      console.error('Error uploading images:', error);
+      setErrors(prev => ({ 
+        ...prev, 
+        [`item_${portfolioItems.findIndex(i => i.id === activeItem)}_images`]: 'Failed to upload images. Please try again.' 
+      }));
+    } finally {
       setUploading(false);
-    }, 1000);
+    }
   };
 
   const handleRemoveImage = (imageId: string) => {
-    setPortfolioItems(prevItems => 
-      prevItems.map(item => 
-        item.id === activeItem 
-          ? { 
-              ...item, 
-              images: item.images.filter(img => img.id !== imageId)
-            } 
-          : item
-      )
+    const updatedItems = portfolioItems.map(item => 
+      item.id === activeItem 
+        ? { 
+            ...item, 
+            images: item.images.filter(img => img.id !== imageId)
+          } 
+        : item
     );
+    
+    setPortfolioItems(updatedItems);
+    
+    // Auto-save after image removal
+    setTimeout(() => autoSavePortfolio(updatedItems), 500);
   };
 
   const addPortfolioItem = () => {
@@ -118,8 +230,12 @@ const FreelancerPortfolioStep: React.FC<FreelancerPortfolioStepProps> = ({
       images: []
     };
     
-    setPortfolioItems([...portfolioItems, newItem]);
+    const updatedItems = [...portfolioItems, newItem];
+    setPortfolioItems(updatedItems);
     setActiveItem(newItem.id);
+    
+    // Auto-save after adding new item
+    setTimeout(() => autoSavePortfolio(updatedItems), 500);
   };
 
   const removePortfolioItem = (id: string) => {
@@ -130,6 +246,9 @@ const FreelancerPortfolioStep: React.FC<FreelancerPortfolioStepProps> = ({
     if (id === activeItem && updatedItems.length > 0) {
       setActiveItem(updatedItems[0].id);
     }
+    
+    // Auto-save after removing item
+    setTimeout(() => autoSavePortfolio(updatedItems), 500);
   };
 
   const validatePortfolio = () => {
@@ -161,10 +280,20 @@ const FreelancerPortfolioStep: React.FC<FreelancerPortfolioStepProps> = ({
     return isValid;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Portfolio is optional, so we can continue even without validation
     // But we still validate to show any errors
     validatePortfolio();
+    
+    // Ensure final save to Firebase before proceeding
+    setSaving(true);
+    try {
+      await autoSavePortfolio(portfolioItems);
+    } catch (error) {
+      console.error('Error saving portfolio on submit:', error);
+    } finally {
+      setSaving(false);
+    }
     
     // Submit the data
     onNext({ portfolioItems });
@@ -181,6 +310,23 @@ const FreelancerPortfolioStep: React.FC<FreelancerPortfolioStepProps> = ({
         <span className="text-sm text-[#FF6B00]">(This step is optional, you can add portfolio items later)</span>
       </p>
       
+      {/* Saving indicator */}
+      {saving && (
+        <div className="mb-4 flex items-center text-sm text-[#FF6B00]">
+          <svg className="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          Saving portfolio...
+        </div>
+      )}
+
+      {lastSaved && !saving && (
+        <div className="mb-4 text-sm text-green-600">
+          ✓ Last saved: {lastSaved.toLocaleTimeString()}
+        </div>
+      )}
+
       {/* Portfolio Tabs */}
       <div className="mb-6 flex items-center">
         <div className="flex space-x-2 overflow-x-auto pb-2 flex-grow">
@@ -341,7 +487,7 @@ const FreelancerPortfolioStep: React.FC<FreelancerPortfolioStepProps> = ({
               ))}
               
               {currentItem.images.length < 5 && (
-                <div className="aspect-square border-2 border-dashed border-[#ffeee3] rounded-lg flex flex-col items-center justify-center bg-[#ffeee3] hover:bg-[#ffeee3] transition-colors cursor-pointer">
+                <div className="aspect-square border-2 border-dashed border-[#FF6B00] rounded-lg flex flex-col items-center justify-center bg-[#ffeee3] hover:bg-[#fff0e6] transition-colors cursor-pointer">
                   <input
                     id="imageUpload"
                     type="file"
@@ -353,20 +499,21 @@ const FreelancerPortfolioStep: React.FC<FreelancerPortfolioStepProps> = ({
                   />
                   <label 
                     htmlFor="imageUpload" 
-                    className="cursor-pointer w-full h-full flex flex-col items-center justify-center"
+                    className="cursor-pointer w-full h-full flex flex-col items-center justify-center p-2"
                   >
                     {uploading ? (
-                      <div className="animate-pulse flex flex-col items-center justify-center">
+                      <div className="flex flex-col items-center justify-center">
                         <svg className="animate-spin h-6 w-6 text-[#FF6B00]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        <span className="mt-2 text-sm text-[#ffeee3]">Uploading...</span>
+                        <span className="mt-2 text-xs text-[#FF6B00] text-center">Uploading...</span>
                       </div>
                     ) : (
                       <>
-                        <Image size={24} className="text-[#ffeee3]" />
-                        <span className="mt-2 text-sm text-[#ffeee3]">Add Image</span>
+                        <Upload size={20} className="text-[#FF6B00] mb-1" />
+                        <span className="text-xs text-[#FF6B00] text-center font-medium">Upload Image</span>
+                        <span className="text-xs text-gray-500 text-center mt-1">Click to select</span>
                       </>
                     )}
                   </label>
@@ -407,19 +554,46 @@ const FreelancerPortfolioStep: React.FC<FreelancerPortfolioStepProps> = ({
       </div>
       
       {/* Navigation buttons */}
-      <div className="mt-8 flex flex-col md:flex-row gap-4">
-        <button
-          onClick={onBack}
-          className="order-2 md:order-1 w-full md:w-auto border border-[#ffeee3] text-[#2E2E2E] hover:bg-[#ffeee3] font-medium px-8 py-3 rounded-lg transition-colors duration-300"
-        >
-          Back
-        </button>
-        <button
-          onClick={handleSubmit}
-          className="order-1 md:order-2 w-full md:flex-1 bg-[#FF6B00] hover:bg-[#FF9F45] text-white font-medium px-8 py-3 rounded-lg transition-colors duration-300"
-        >
-          {portfolioItems.some(item => item.title && item.images.length > 0) ? 'Save & Continue' : 'Skip for Now'}
-        </button>
+      <div className="mt-8 space-y-4">
+        {/* Main action buttons */}
+        <div className="flex flex-col md:flex-row gap-4">
+          <button
+            onClick={onBack}
+            className="order-2 md:order-1 w-full md:w-auto border border-[#ffeee3] text-[#2E2E2E] hover:bg-[#ffeee3] font-medium px-8 py-3 rounded-lg transition-colors duration-300"
+          >
+            Back
+          </button>
+          
+          <button
+            onClick={handleSubmit}
+            disabled={saving}
+            className="order-1 md:order-2 w-full md:flex-1 bg-[#FF6B00] hover:bg-[#FF9F45] disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium px-8 py-3 rounded-lg transition-colors duration-300 flex items-center justify-center"
+          >
+            {saving ? (
+              <>
+                <svg className="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Saving...
+              </>
+            ) : (
+              portfolioItems.some(item => item.title && item.images.length > 0) ? 'Save & Continue' : 'Next'
+            )}
+          </button>
+        </div>
+        
+        {/* Skip option */}
+        {portfolioItems.some(item => item.title && item.images.length > 0) && (
+          <div className="text-center">
+            <button
+              onClick={() => onNext({ portfolioItems: [] })}
+              className="text-sm text-gray-500 hover:text-[#FF6B00] underline transition-colors duration-200"
+            >
+              Skip for now
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

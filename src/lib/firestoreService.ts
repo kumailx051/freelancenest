@@ -178,4 +178,22 @@ export class FreelanceFirestoreService extends FirestoreService {
   static async getProposalsByJob(jobId: string) {
     return this.getWhere('proposals', 'jobId', '==', jobId);
   }
+
+  // Portfolio operations
+  static async updateUserPortfolio(userId: string, portfolioData: any[]) {
+    const portfolioUpdate = {
+      portfolio: portfolioData,
+      portfolioItemsCount: portfolioData.length,
+      lastPortfolioUpdate: new Date()
+    };
+    return this.updateUserProfile(userId, portfolioUpdate);
+  }
+
+  static async getUserPortfolio(userId: string) {
+    const userProfiles = await this.getUserProfile(userId);
+    if (userProfiles.length > 0 && userProfiles[0].portfolio) {
+      return userProfiles[0].portfolio;
+    }
+    return [];
+  }
 }
