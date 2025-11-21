@@ -108,10 +108,18 @@ import TimeTracker from './pages/freelancer/TimeTracker'
 import Wallet from './pages/freelancer/Wallet'
 import DisputeCenter from './pages/freelancer/DisputeCenter'
 
+// Admin Pages
+import AdminDashboard from './pages/admin/AdminDashboard'
+import UserManagement from './pages/admin/UserManagement'
+import ProjectOversight from './pages/admin/ProjectOversight'
+import ReportsMonitoring from './pages/admin/ReportsMonitoring'
+import AnalyticsReporting from './pages/admin/AnalyticsReporting'
+
 // Components
 import AppLayout from './components/common/AppLayout'
 import ClientLayout from './components/common/ClientLayout'
 import FreelancerLayout from './components/common/FreelancerLayout'
+import AdminLayout from './components/common/AdminLayout'
 import ProtectedRoute from './components/common/ProtectedRoute'
 
 function App() {
@@ -119,6 +127,22 @@ function App() {
     <AuthProvider>
       <Router>
       <Routes>
+        {/* Admin Routes with AdminLayout */}
+        <Route path="/admin/*" element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminLayout>
+              <Routes>
+                <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="users" element={<UserManagement />} />
+                <Route path="projects" element={<ProjectOversight />} />
+                <Route path="reports" element={<ReportsMonitoring />} />
+                <Route path="analytics" element={<AnalyticsReporting />} />
+                <Route path="settings" element={<AdminDashboard />} />
+              </Routes>
+            </AdminLayout>
+          </ProtectedRoute>
+        } />
+
         {/* Client Routes with ClientLayout */}
         <Route path="/client/*" element={
           <ProtectedRoute requiredRole="client">

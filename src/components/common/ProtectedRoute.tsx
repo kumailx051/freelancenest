@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRole?: 'freelancer' | 'client';
+  requiredRole?: 'freelancer' | 'client' | 'admin';
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole }) => {
@@ -30,9 +30,20 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
 
   console.log('User authenticated:', currentUser.uid, 'accessing:', location.pathname);
 
-  // TODO: Add role-based access control if needed
-  // For now, any authenticated user can access both client and freelancer routes
-  // You can implement role checking here later if you store user roles in Firestore
+  // Role-based access control
+  if (requiredRole) {
+    // For admin role, check if user email is in admin list (you can customize this logic)
+    if (requiredRole === 'admin') {
+      const adminEmails = ['admin@freelancenest.com', 'super@freelancenest.com']; // Add your admin emails
+      if (!adminEmails.includes(currentUser.email || '')) {
+        console.log('User does not have admin privileges');
+        return <Navigate to="/dashboard" replace />;
+      }
+    }
+    
+    // For other roles, you can implement role checking here if you store user roles in Firestore
+    // For now, allowing access to client and freelancer routes for any authenticated user
+  }
 
   return <>{children}</>;
 };
