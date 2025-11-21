@@ -91,6 +91,7 @@ import Orders from './pages/freelancer/Orders'
 import Earnings from './pages/freelancer/Earnings'
 import FreelancerProfile from './pages/freelancer/Profile'
 import Portfolio from './pages/freelancer/Portfolio'
+import ProjectDetails from './pages/freelancer/ProjectDetails'
 import FreelancerMessages from './pages/freelancer/Messages'
 import FreelancerNotifications from './pages/freelancer/Notifications'
 import FreelancerSettings from './pages/freelancer/Settings'
@@ -102,7 +103,6 @@ import Gigs from './pages/freelancer/Gigs'
 import CreateEditGig from './pages/freelancer/CreateEditGig'
 import GigDetails from './pages/freelancer/GigDetails'
 import AddProject from './pages/freelancer/AddProject'
-import Calendar from './pages/freelancer/Calendar'
 import Analytics from './pages/freelancer/Analytics'
 import TimeTracker from './pages/freelancer/TimeTracker'
 import Wallet from './pages/freelancer/Wallet'
@@ -161,6 +161,7 @@ function App() {
                 <Route path="wallet" element={<Wallet />} />
                 <Route path="profile" element={<FreelancerProfile />} />
                 <Route path="portfolio" element={<Portfolio />} />
+                <Route path="portfolio/:id" element={<ProjectDetails />} />
                 <Route path="portfolio/add" element={<AddProject />} />
                 <Route path="portfolio/edit/:id" element={<AddProject />} />
                 <Route path="gigs" element={<Gigs />} />
@@ -169,7 +170,6 @@ function App() {
                 <Route path="gigs/details/:id" element={<GigDetails />} />
                 <Route path="messages" element={<FreelancerMessages />} />
                 <Route path="notifications" element={<FreelancerNotifications />} />
-                <Route path="calendar" element={<Calendar />} />
                 <Route path="analytics" element={<Analytics />} />
                 <Route path="time-tracker" element={<TimeTracker />} />
 

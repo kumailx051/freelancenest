@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { collection, query, where, getDocs, orderBy, deleteDoc, doc } from 'firebase/firestore';
+import { Link, useNavigate } from 'react-router-dom';
+import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
@@ -47,6 +47,7 @@ interface PortfolioItem {
 
 const Portfolio: React.FC = () => {
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('grid'); // grid, list
@@ -57,37 +58,84 @@ const Portfolio: React.FC = () => {
   // Fetch portfolio projects from Firebase
   const fetchProjects = async () => {
     if (!currentUser?.uid) {
+      console.log('No current user UID available');
       setIsLoading(false);
       return;
     }
 
+    console.log('Fetching portfolio projects for user:', currentUser.uid);
+    setIsLoading(true);
+
     try {
+      // First, try to fetch without orderBy to avoid index issues
       const q = query(
         collection(db, 'portfolio_project'),
-        where('userId', '==', currentUser.uid),
-        orderBy('createdAt', 'desc')
+        where('userId', '==', currentUser.uid)
       );
       
       const querySnapshot = await getDocs(q);
       const projects: PortfolioItem[] = [];
       
+      console.log('Raw query snapshot size:', querySnapshot.size);
+      
       querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        console.log('Document data:', { id: doc.id, ...data });
+        
         projects.push({
           id: doc.id,
-          ...doc.data()
+          ...data,
+          // Ensure required fields have defaults
+          views: data.views || 0,
+          likes: data.likes || 0,
+          featured: data.featured || false,
+          status: data.status || 'published'
         } as PortfolioItem);
       });
       
+      // Sort projects by createdAt in memory (most recent first)
+      projects.sort((a, b) => {
+        if (a.createdAt && b.createdAt) {
+          return b.createdAt.toDate().getTime() - a.createdAt.toDate().getTime();
+        }
+        return 0;
+      });
+      
       setPortfolioItems(projects);
-      console.log(`Fetched ${projects.length} portfolio projects from Firebase`);
+      console.log(`Successfully fetched ${projects.length} portfolio projects from Firebase`);
+      
+      if (projects.length === 0) {
+        console.log('No projects found. Checking if collection exists and user has projects.');
+        // Try to fetch all documents to debug
+        const allDocsQuery = query(collection(db, 'portfolio_project'));
+        const allDocsSnapshot = await getDocs(allDocsQuery);
+        console.log('Total documents in collection:', allDocsSnapshot.size);
+        
+        allDocsSnapshot.forEach((doc) => {
+          const data = doc.data();
+          console.log('All docs - ID:', doc.id, 'UserId:', data.userId, 'Current User:', currentUser.uid);
+        });
+      }
+      
     } catch (error) {
       console.error('Error fetching portfolio projects:', error);
+      
+      // Fallback: try without any filtering to see if we can access the collection
+      try {
+        console.log('Attempting fallback query without filtering...');
+        const fallbackQuery = query(collection(db, 'portfolio_project'));
+        const fallbackSnapshot = await getDocs(fallbackQuery);
+        console.log('Fallback query successful. Total documents:', fallbackSnapshot.size);
+      } catch (fallbackError) {
+        console.error('Fallback query also failed:', fallbackError);
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
+    console.log('Portfolio useEffect triggered. Current user:', currentUser?.uid);
     fetchProjects();
   }, [currentUser]);
 
@@ -137,6 +185,9 @@ const Portfolio: React.FC = () => {
     avgRating: portfolioItems.length > 0 ? (portfolioItems.reduce((acc, item) => acc + item.rating, 0) / portfolioItems.length).toFixed(1) : '0.0',
     featuredProjects: portfolioItems.filter(item => item.featured).length
   };
+
+  console.log('Portfolio stats:', stats);
+  console.log('Portfolio items:', portfolioItems);
 
   if (isLoading) {
     return (
@@ -289,7 +340,11 @@ const Portfolio: React.FC = () => {
         {viewMode === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredItems.map((item) => (
-              <div key={item.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
+              <div 
+                key={item.id} 
+                className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg transition-all cursor-pointer transform hover:scale-[1.02]"
+                onClick={() => navigate(`/freelancer/portfolio/${item.id}`)}
+              >
                 {/* Thumbnail */}
                 <div className="relative">
                   <img
@@ -309,6 +364,7 @@ const Portfolio: React.FC = () => {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="bg-white/90 hover:bg-white text-[#2E2E2E] p-2 rounded-lg transition-colors"
+                        onClick={(e) => e.stopPropagation()}
                       >
                         <ExternalLink className="w-4 h-4" />
                       </a>
@@ -319,6 +375,7 @@ const Portfolio: React.FC = () => {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="bg-white/90 hover:bg-white text-[#2E2E2E] p-2 rounded-lg transition-colors"
+                        onClick={(e) => e.stopPropagation()}
                       >
                         <Code className="w-4 h-4" />
                       </a>
@@ -384,11 +441,15 @@ const Portfolio: React.FC = () => {
                       <Link
                         to={`/freelancer/portfolio/edit/${item.id}`}
                         className="p-2 text-[#2E2E2E]/60 hover:text-[#FF6B00] hover:bg-[#ffeee3] rounded-lg transition-colors"
+                        onClick={(e) => e.stopPropagation()}
                       >
                         <Edit className="w-4 h-4" />
                       </Link>
                       <button 
-                        onClick={() => handleDeleteProject(item.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteProject(item.id);
+                        }}
                         disabled={deleteLoading === item.id}
                         className="p-2 text-[#2E2E2E]/60 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                       >
@@ -407,7 +468,7 @@ const Portfolio: React.FC = () => {
         ) : (
           <div className="space-y-6">
             {filteredItems.map((item) => (
-              <div key={item.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <div key={item.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate(`/freelancer/portfolio/${item.id}`)}>
                 <div className="flex space-x-6">
                   {/* Thumbnail */}
                   <div className="relative flex-shrink-0">
@@ -439,6 +500,7 @@ const Portfolio: React.FC = () => {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="p-2 text-[#2E2E2E]/60 hover:text-[#FF6B00] hover:bg-[#ffeee3] rounded-lg transition-colors"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <ExternalLink className="w-4 h-4" />
                           </a>
@@ -449,6 +511,7 @@ const Portfolio: React.FC = () => {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="p-2 text-[#2E2E2E]/60 hover:text-[#FF6B00] hover:bg-[#ffeee3] rounded-lg transition-colors"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <Code className="w-4 h-4" />
                           </a>
@@ -456,11 +519,15 @@ const Portfolio: React.FC = () => {
                         <Link
                           to={`/freelancer/portfolio/edit/${item.id}`}
                           className="p-2 text-[#2E2E2E]/60 hover:text-[#FF6B00] hover:bg-[#ffeee3] rounded-lg transition-colors"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <Edit className="w-4 h-4" />
                         </Link>
                         <button 
-                          onClick={() => handleDeleteProject(item.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteProject(item.id);
+                          }}
                           disabled={deleteLoading === item.id}
                           className="p-2 text-[#2E2E2E]/60 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                         >

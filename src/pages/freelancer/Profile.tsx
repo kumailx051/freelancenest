@@ -12,7 +12,6 @@ import {
   X,
   Plus,
   Trash2,
-  ExternalLink,
   Clock,
   Users,
   CheckCircle,
@@ -36,7 +35,6 @@ const Profile: React.FC = () => {
   const [newLanguage, setNewLanguage] = useState('');
   const [newSkill, setNewSkill] = useState({ name: '', level: 50, category: 'Frontend' });
   const [newEducation, setNewEducation] = useState({ degree: '', institution: '', year: '', description: '' });
-  const [newCertification, setNewCertification] = useState({ name: '', issuer: '', date: '', credentialId: '', verified: false });
   const [newExperience, setNewExperience] = useState({ position: '', company: '', duration: '', description: '' });
 
   const [profile, setProfile] = useState({
@@ -58,7 +56,6 @@ const Profile: React.FC = () => {
 
   const [skills, setSkills] = useState<Array<{name: string; level: number; category: string}>>([]);
 
-  const [certifications, setCertifications] = useState<Array<any>>([]);
   const [education, setEducation] = useState<Array<any>>([]);
   const [workExperience, setWorkExperience] = useState<Array<any>>([]);
   const [stats, setStats] = useState({
@@ -86,12 +83,13 @@ const Profile: React.FC = () => {
         if (userProfile && userProfile.length > 0) {
           const userData = userProfile[0];
           
-          // Update profile data
+          // Update profile data with proper Firebase field mapping
+          console.log('Firebase user data:', userData);
           setProfile({
             name: userData.profile?.fullName || userData.firstName || currentUser.displayName || '',
             title: userData.profile?.title || userData.profileTitle || '',
-            avatar: userData.profile?.profilePictureUrl || currentUser.photoURL || '',
-            location: userData.profile?.location || '',
+            avatar: userData.profilePictureUrl || userData.profile?.profilePictureUrl || currentUser.photoURL || '',
+            location: userData.location || userData.profile?.location || '', // Fetch location from root level first
             email: userData.email || currentUser.email || '',
             phone: userData.profile?.phone || '',
             website: userData.profile?.website || '',
@@ -107,11 +105,6 @@ const Profile: React.FC = () => {
           // Update skills
           if (userData.skills && Array.isArray(userData.skills)) {
             setSkills(userData.skills);
-          }
-
-          // Update certifications
-          if (userData.certifications && Array.isArray(userData.certifications)) {
-            setCertifications(userData.certifications);
           }
 
           // Update education
@@ -163,10 +156,12 @@ const Profile: React.FC = () => {
       setError(null);
 
       const profileData = {
+        // Save profile picture URL at root level to match your Firebase structure
+        profilePictureUrl: profile.avatar,
         profile: {
           fullName: profile.name,
           title: profile.title,
-          profilePictureUrl: profile.avatar,
+          profilePictureUrl: profile.avatar, // Also save in nested profile object for compatibility
           location: profile.location,
           phone: profile.phone,
           website: profile.website,
@@ -181,10 +176,11 @@ const Profile: React.FC = () => {
         skills: skills,
         education: education,
         experience: workExperience,
-        certifications: certifications,
         stats: stats,
         updatedAt: new Date().toISOString()
       };
+
+      console.log('Saving profile data to Firebase:', profileData);
 
       await FreelanceFirestoreService.updateUserProfile(currentUser.uid, profileData);
       setIsEditing(false);
@@ -218,10 +214,31 @@ const Profile: React.FC = () => {
         allowedTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
       });
       
+      // Update profile state with new image
       setProfile(prev => ({ ...prev, avatar: uploadResult.url }));
+      
+      // Automatically save the new profile picture to Firebase
+      try {
+        await FreelanceFirestoreService.updateUserProfile(currentUser.uid, {
+          profilePictureUrl: uploadResult.url,
+          'profile.profilePictureUrl': uploadResult.url // Update nested field too
+        });
+        console.log('Profile picture saved to Firebase:', uploadResult.url);
+      } catch (saveError) {
+        console.error('Error saving profile picture to Firebase:', saveError);
+        setError('Image uploaded but failed to save to profile. Please save your profile to update.');
+      }
     } catch (err: any) {
       console.error('Error uploading image:', err);
-      setError(err.message || 'Failed to upload image. Please try again.');
+      if (err.code === 'MISSING_API_KEY') {
+        setError('Image upload service not configured. Please contact support.');
+      } else if (err.code === 'FILE_TOO_LARGE') {
+        setError('Image is too large. Please select an image smaller than 5MB.');
+      } else if (err.code === 'INVALID_FILE_TYPE') {
+        setError('Invalid file type. Please select a JPEG, PNG, or WebP image.');
+      } else {
+        setError(err.message || 'Failed to upload image. Please check your internet connection and try again.');
+      }
     } finally {
       setUploadingImage(false);
     }
@@ -267,16 +284,7 @@ const Profile: React.FC = () => {
 
 
 
-  const addCertification = () => {
-    if (newCertification.name.trim() && newCertification.issuer.trim()) {
-      setCertifications(prev => [...prev, { ...newCertification, id: Date.now() }]);
-      setNewCertification({ name: '', issuer: '', date: '', credentialId: '', verified: false });
-    }
-  };
 
-  const removeCertification = (id: number) => {
-    setCertifications(prev => prev.filter(cert => cert.id !== id));
-  };
 
   const addExperience = () => {
     if (newExperience.position.trim() && newExperience.company.trim()) {
@@ -310,8 +318,7 @@ const Profile: React.FC = () => {
     { id: 'overview', label: 'Overview' },
     { id: 'skills', label: 'Skills & Expertise' },
     { id: 'experience', label: 'Experience' },
-    { id: 'education', label: 'Education' },
-    { id: 'certifications', label: 'Certifications' }
+    { id: 'education', label: 'Education' }
   ];
 
   // Loading state
@@ -377,17 +384,33 @@ const Profile: React.FC = () => {
             {/* Avatar Section */}
             <div className="flex justify-center lg:justify-start -mt-16 mb-6">
               <div className="relative flex-shrink-0">
-                {profile.avatar ? (
-                  <img
-                    src={profile.avatar}
-                    alt={profile.name}
-                    className="w-32 h-32 rounded-xl border-4 border-white shadow-lg object-cover"
-                  />
-                ) : (
-                  <div className="w-32 h-32 rounded-xl border-4 border-white shadow-lg bg-gray-200 flex items-center justify-center">
-                    <Users className="w-12 h-12 text-gray-400" />
-                  </div>
-                )}
+                <div className="relative">
+                  {profile.avatar ? (
+                    <img
+                      src={profile.avatar}
+                      alt={profile.name}
+                      className={`w-32 h-32 rounded-xl border-4 border-white shadow-lg object-cover transition-opacity duration-300 ${
+                        uploadingImage ? 'opacity-50' : 'opacity-100'
+                      }`}
+                      onError={() => {
+                        console.error('Failed to load profile image:', profile.avatar);
+                        // Fallback to default avatar on image load error
+                        setProfile(prev => ({ ...prev, avatar: '' }));
+                      }}
+                    />
+                  ) : (
+                    <div className={`w-32 h-32 rounded-xl border-4 border-white shadow-lg bg-gradient-to-br from-[#FF6B00] to-[#FF9F45] flex items-center justify-center transition-opacity duration-300 ${
+                      uploadingImage ? 'opacity-50' : 'opacity-100'
+                    }`}>
+                      <Users className="w-12 h-12 text-white" />
+                    </div>
+                  )}
+                  {uploadingImage && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-xl">
+                      <Loader className="w-8 h-8 text-white animate-spin" />
+                    </div>
+                  )}
+                </div>
                 {isEditing ? (
                   <label className="absolute bottom-2 right-2 bg-[#FF6B00] hover:bg-[#FF9F45] text-white p-2 rounded-lg shadow-lg transition-colors cursor-pointer">
                     {uploadingImage ? (
@@ -646,7 +669,7 @@ const Profile: React.FC = () => {
                         <label className="block text-sm font-medium text-[#2E2E2E] mb-2">Location</label>
                         <div className="w-full border border-gray-200 bg-gray-50 rounded-lg px-4 py-3 text-[#2E2E2E]/60">
                           {profile.location || 'No location set'}
-                          <span className="ml-2 text-xs text-[#2E2E2E]/40">(Set during registration)</span>
+                          <span className="ml-2 text-xs text-[#2E2E2E]/40">(Set during registration - Cannot be changed)</span>
                         </div>
                       </div>
                     </div>
@@ -1000,108 +1023,7 @@ const Profile: React.FC = () => {
               </div>
             )}
 
-            {/* Certifications Tab */}
-            {activeTab === 'certifications' && (
-              <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-semibold text-[#2E2E2E]">Certifications</h3>
-                </div>
 
-                {isEditing && (
-                  <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                    <h4 className="font-medium text-[#2E2E2E] mb-3">Add New Certification</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <input
-                        type="text"
-                        value={newCertification.name}
-                        onChange={(e) => setNewCertification(prev => ({ ...prev, name: e.target.value }))}
-                        placeholder="Certification name"
-                        className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
-                      />
-                      <input
-                        type="text"
-                        value={newCertification.issuer}
-                        onChange={(e) => setNewCertification(prev => ({ ...prev, issuer: e.target.value }))}
-                        placeholder="Issuing organization"
-                        className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
-                      />
-                      <input
-                        type="date"
-                        value={newCertification.date}
-                        onChange={(e) => setNewCertification(prev => ({ ...prev, date: e.target.value }))}
-                        className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
-                      />
-                      <input
-                        type="text"
-                        value={newCertification.credentialId}
-                        onChange={(e) => setNewCertification(prev => ({ ...prev, credentialId: e.target.value }))}
-                        placeholder="Credential ID (optional)"
-                        className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
-                      />
-                      <div className="flex items-center space-x-3">
-                        <input
-                          type="checkbox"
-                          id="verified"
-                          checked={newCertification.verified}
-                          onChange={(e) => setNewCertification(prev => ({ ...prev, verified: e.target.checked }))}
-                          className="rounded border-gray-300 text-[#FF6B00] focus:ring-[#FF6B00]"
-                        />
-                        <label htmlFor="verified" className="text-sm text-[#2E2E2E]">Verified certification</label>
-                      </div>
-                      <button
-                        onClick={addCertification}
-                        className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Certification
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {certifications.length > 0 ? certifications.map((cert) => (
-                    <div key={cert.id} className="border border-gray-200 rounded-lg p-6">
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <h4 className="font-semibold text-[#2E2E2E]">{cert.name}</h4>
-                            {cert.verified && (
-                              <CheckCircle className="w-4 h-4 text-green-600" />
-                            )}
-                          </div>
-                          <p className="text-[#FF6B00] font-medium mb-1">{cert.issuer}</p>
-                          <p className="text-sm text-[#2E2E2E]/60 mb-1">Issued: {cert.date}</p>
-                          <p className="text-xs text-[#2E2E2E]/50">ID: {cert.credentialId}</p>
-                        </div>
-                        <div className="flex space-x-2">
-                          <button className="p-2 text-[#2E2E2E]/60 hover:text-[#FF6B00] hover:bg-[#ffeee3] rounded-lg transition-colors">
-                            <ExternalLink className="w-4 h-4" />
-                          </button>
-                          {isEditing && (
-                            <>
-                              <button className="p-2 text-[#2E2E2E]/60 hover:text-[#FF6B00] hover:bg-[#ffeee3] rounded-lg transition-colors">
-                                <Edit className="w-4 h-4" />
-                              </button>
-                              <button 
-                                onClick={() => removeCertification(cert.id)}
-                                className="p-2 text-[#2E2E2E]/60 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )) : (
-                    <div className="col-span-2 text-center py-8">
-                      <p className="text-[#2E2E2E]/60">No certifications added yet. Add your professional certifications to enhance your credibility.</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
 
             {/* Save Button when editing */}
             {isEditing && (
