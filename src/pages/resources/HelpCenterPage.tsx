@@ -1,50 +1,7 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Search, MessageSquare, Mail, FileText, Users, CreditCard, Settings, Shield, ArrowRight } from 'lucide-react';
+import React from 'react';
+import { Mail, FileText } from 'lucide-react';
 
 const HelpCenterPage: React.FC = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // Popular categories
-  const popularCategories = [
-    { 
-      title: 'Getting Started', 
-      icon: <FileText className="w-6 h-6" />,
-      color: 'bg-[#ffeee3] text-[#FF6B00]',
-      href: '/resources/help/getting-started'
-    },
-    { 
-      title: 'Account & Profile', 
-      icon: <Users className="w-6 h-6" />,
-      color: 'bg-[#ffeee3] text-[#FF6B00]',
-      href: '/resources/help/account-profile'
-    },
-    { 
-      title: 'Payments & Finances', 
-      icon: <CreditCard className="w-6 h-6" />,
-      color: 'bg-[#ffeee3] text-[#FF6B00]',
-      href: '/resources/help/payments-finances'
-    },
-    { 
-      title: 'Platform Settings', 
-      icon: <Settings className="w-6 h-6" />,
-      color: 'bg-[#ffeee3] text-[#FF6B00]',
-      href: '/resources/help/platform-settings'
-    },
-    { 
-      title: 'Security & Privacy', 
-      icon: <Shield className="w-6 h-6" />,
-      color: 'bg-[#ffeee3] text-[#FF6B00]',
-      href: '/resources/help/security-privacy'
-    },
-    { 
-      title: 'Contact Support', 
-      icon: <Mail className="w-6 h-6" />,
-      color: 'bg-[#ffeee3] text-[#FF6B00]',
-      href: '/resources/help/contact-support'
-    }
-  ];
-
   // FAQ sections
   const faqSections = [
     {
@@ -103,43 +60,6 @@ const HelpCenterPage: React.FC = () => {
     }
   ];
 
-  // Sample Quick Help Articles
-  const quickHelpArticles = [
-    {
-      title: "Getting Your First Client",
-      excerpt: "Tips and strategies for winning your first project on FreelanceNest.",
-      category: "Beginner Tips",
-      readTime: "5 min",
-      href: "#"
-    },
-    {
-      title: "Setting Up Secure Payments",
-      excerpt: "Learn how to configure your payment methods and ensure secure transactions.",
-      category: "Payments",
-      readTime: "3 min",
-      href: "#"
-    },
-    {
-      title: "Creating an Effective Portfolio",
-      excerpt: "Showcase your work properly to attract more clients.",
-      category: "Profile",
-      readTime: "7 min",
-      href: "#"
-    },
-    {
-      title: "Understanding Platform Fees",
-      excerpt: "A breakdown of FreelanceNest fees and when they apply.",
-      category: "Finances",
-      readTime: "4 min",
-      href: "#"
-    }
-  ];
-
-  // Handle search input change
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-  };
-
   return (
     <div className="min-h-screen bg-[#ffeee3]/30">
       {/* Hero Section */}
@@ -154,89 +74,16 @@ const HelpCenterPage: React.FC = () => {
             <div className="text-center">
               <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">How can we <span className="bg-gradient-to-r from-[#FF6B00] to-[#FF6B00] bg-clip-text text-transparent">help</span> you?</h1>
               <p className="text-xl text-[#ffeee3] mb-8">
-                Search our knowledge base or browse popular help topics
+                Find answers to frequently asked questions and get support
               </p>
-              
-              {/* Search Box */}
-              <div className="relative max-w-2xl mx-auto">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Search className="h-5 w-5 text-[#ffeee3]" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search for answers..."
-                  value={searchQuery}
-                  onChange={handleSearchChange}
-                  className="pl-12 pr-4 py-4 w-full rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#FF6B00] shadow-lg text-[#2E2E2E]"
-                />
-                <button 
-                  className="absolute inset-y-0 right-0 px-4 text-white bg-[#FF6B00] hover:bg-[#FF6B00]/90 rounded-r-xl transition-colors duration-200"
-                >
-                  Search
-                </button>
-              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Popular Help Categories */}
-      <section className="py-16 -mt-8">
-        <div className="section-container">
-          <div className="max-w-6xl mx-auto">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {popularCategories.map((category, index) => (
-                <Link 
-                  to={category.href}
-                  key={index}
-                  className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md hover:border-[#FF6B00] border border-transparent transition-all duration-200 flex items-start gap-4"
-                >
-                  <div className={`p-3 rounded-lg ${category.color}`}>
-                    {category.icon}
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-semibold text-[#2E2E2E] mb-2">{category.title}</h3>
-                    <div className="flex items-center text-[#FF6B00] font-medium">
-                      Browse articles
-                      <ArrowRight className="ml-1 w-4 h-4" />
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
 
-      {/* Quick Help Articles */}
-      <section className="py-16 bg-white">
-        <div className="section-container">
-          <div className="max-w-6xl mx-auto">
-            <h2 className="text-3xl font-bold text-[#2E2E2E] mb-8">Quick Help Articles</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {quickHelpArticles.map((article, index) => (
-                <div key={index} className="bg-[#ffeee3] rounded-xl overflow-hidden hover:shadow-md transition-shadow duration-200">
-                  <div className="p-6">
-                    <div className="flex justify-between items-center mb-3">
-                      <span className="text-sm font-medium text-[#FF6B00]">{article.category}</span>
-                      <span className="text-xs text-[#ffeee3]">{article.readTime} read</span>
-                    </div>
-                    <h3 className="text-lg font-bold text-[#2E2E2E] mb-3">{article.title}</h3>
-                    <p className="text-[#2E2E2E] mb-4 text-sm">{article.excerpt}</p>
-                    <a 
-                      href={article.href}
-                      className="inline-flex items-center text-[#FF6B00] font-medium hover:underline"
-                    >
-                      Read More
-                      <ArrowRight className="ml-1 w-4 h-4" />
-                    </a>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
+
+
 
       {/* FAQ Sections */}
       <section className="py-16">
@@ -276,23 +123,7 @@ const HelpCenterPage: React.FC = () => {
               </p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white p-8 rounded-xl shadow-sm text-center">
-                <div className="bg-orange-100 rounded-full p-4 w-16 h-16 flex items-center justify-center mx-auto mb-6">
-                  <MessageSquare className="w-8 h-8 text-[#FF6B00]" />
-                </div>
-                <h3 className="text-xl font-bold text-[#2E2E2E] mb-3">Live Chat</h3>
-                <p className="text-[#2E2E2E] mb-6">
-                  Chat with our support team in real-time for immediate assistance.
-                </p>
-                <button className="w-full bg-[#FF6B00] hover:bg-orange-600 text-white font-medium py-2 rounded-lg transition-colors duration-200">
-                  Start Chat
-                </button>
-                <p className="text-sm text-[#ffeee3] mt-3">
-                  Available 24/7
-                </p>
-              </div>
-              
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-white p-8 rounded-xl shadow-sm text-center">
                 <div className="bg-orange-100 rounded-full p-4 w-16 h-16 flex items-center justify-center mx-auto mb-6">
                   <Mail className="w-8 h-8 text-[#FF6B00]" />
@@ -304,7 +135,7 @@ const HelpCenterPage: React.FC = () => {
                 <button className="w-full bg-[#FF6B00] hover:bg-orange-600 text-white font-medium py-2 rounded-lg transition-colors duration-200">
                   Email Us
                 </button>
-                <p className="text-sm text-[#ffeee3] mt-3">
+                <p className="text-sm text-gray-500 mt-3">
                   Response within 24 hours
                 </p>
               </div>
@@ -320,7 +151,7 @@ const HelpCenterPage: React.FC = () => {
                 <button className="w-full bg-[#FF6B00] hover:bg-orange-600 text-white font-medium py-2 rounded-lg transition-colors duration-200">
                   Create Ticket
                 </button>
-                <p className="text-sm text-[#ffeee3] mt-3">
+                <p className="text-sm text-gray-500 mt-3">
                   Dedicated case manager
                 </p>
               </div>
@@ -329,25 +160,6 @@ const HelpCenterPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Community Section */}
-      <section className="py-16 bg-[#2E2E2E] text-white">
-        <div className="section-container">
-          <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-3xl font-bold mb-6">
-              Join Our <span className="bg-gradient-to-r from-[#FF6B00] to-orange-500 bg-clip-text text-transparent">Community</span>
-            </h2>
-            <p className="text-xl text-[#ffeee3] mb-8">
-              Connect with other freelancers, share knowledge, and get advice from experts in our community forum.
-            </p>
-            <Link 
-              to="#" 
-              className="bg-[#FF6B00] text-white hover:bg-orange-600 font-medium px-6 py-3 rounded-lg transition-colors duration-200 inline-block"
-            >
-              Visit Community Forum
-            </Link>
-          </div>
-        </div>
-      </section>
     </div>
   );
 };

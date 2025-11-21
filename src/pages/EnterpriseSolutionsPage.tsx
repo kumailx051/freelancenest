@@ -142,12 +142,9 @@ const EnterpriseSolutionsPage: React.FC = () => {
             <p className="text-xl text-[#ffeee3] mb-8">
               Scale your workforce flexibly with our managed talent solutions. Access top professionals with enterprise-grade security and compliance.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex justify-center">
               <Link to="/talk-to-sales" className="bg-[#ffeee3] text-[#2E2E2E] hover:bg-white font-medium px-6 py-3 rounded-lg transition-colors duration-200 text-center">
                 Talk to Sales
-              </Link>
-              <Link to="/watch-demo" className="bg-transparent border border-[#ffeee3] text-white hover:bg-white/10 font-medium px-6 py-3 rounded-lg transition-colors duration-200 text-center">
-                Watch Demo
               </Link>
             </div>
           </div>
@@ -627,12 +624,9 @@ const EnterpriseSolutionsPage: React.FC = () => {
             <p className="text-xl mb-8 text-[#ffeee3]/90">
               Schedule a consultation with our enterprise team to discuss your organization's specific needs.
             </p>
-            <div className="flex flex-col sm:flex-row justify-center gap-4">
+            <div className="flex justify-center">
               <Link to="/talk-to-sales" className="bg-[#FF6B00] text-white hover:bg-[#FF6B00]/90 font-medium px-8 py-4 rounded-lg transition-colors duration-200 text-center">
                 Request a Consultation
-              </Link>
-              <Link to="/watch-demo" className="bg-transparent border border-[#ffeee3] text-white hover:bg-white/10 font-medium px-8 py-4 rounded-lg transition-colors duration-200 text-center">
-                View Demo
               </Link>
             </div>
           </div>

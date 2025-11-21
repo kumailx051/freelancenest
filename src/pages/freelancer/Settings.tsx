@@ -1,4 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import { useAuth } from '../../contexts/AuthContext';
+import { uploadImage } from '../../lib/imageUpload';
 import { 
   User,
   Mail,
@@ -16,15 +20,48 @@ import {
   AlertTriangle,
   Trash2,
   Plus,
-  Settings as SettingsIcon,
   Smartphone,
   Clock,
   DollarSign
 } from 'lucide-react';
 
+interface UserProfile {
+  firstName: string;
+  lastName: string;
+  email: string;
+  title: string;
+  location: string;
+  website: string;
+  bio: string;
+  avatar: string;
+  memberSince: string;
+}
+
 const Settings: React.FC = () => {
+  const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [userProfile, setUserProfile] = useState<UserProfile>({
+    firstName: '',
+    lastName: '',
+    email: '',
+    title: '',
+    location: '',
+    website: '',
+    bio: '',
+    avatar: '',
+    memberSince: ''
+  });
   const [notifications, setNotifications] = useState({
     email: {
       newMessages: true,
@@ -62,13 +99,212 @@ const Settings: React.FC = () => {
     weeklyDigest: true
   });
 
+  // Fetch user data from Firebase
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!currentUser?.uid) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setUserProfile({
+            firstName: userData.firstName || '',
+            lastName: userData.lastName || '',
+            email: userData.email || currentUser.email || '',
+            title: userData.title || userData.profileTitle || '',
+            location: userData.location || '',
+            website: userData.website || '',
+            bio: userData.bio || '',
+            avatar: userData.profilePictureUrl || userData.avatar || '',
+            memberSince: userData.createdAt ? new Date(userData.createdAt.toDate()).toLocaleDateString() : 'Recently'
+          });
+
+          // Update preferences if they exist
+          if (userData.preferences) {
+            setPreferences(prev => ({ ...prev, ...userData.preferences }));
+          }
+
+          // Update notifications if they exist
+          if (userData.notifications) {
+            setNotifications(prev => ({ ...prev, ...userData.notifications }));
+          }
+
+          // Update privacy settings if they exist
+          if (userData.privacy) {
+            setPrivacy(prev => ({ ...prev, ...userData.privacy }));
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, [currentUser]);
+
+  // Save user data to Firebase
+  const saveUserData = async () => {
+    if (!currentUser?.uid) return;
+
+    setIsSaving(true);
+    try {
+      await updateDoc(doc(db, 'users', currentUser.uid), {
+        firstName: userProfile.firstName,
+        lastName: userProfile.lastName,
+        title: userProfile.title,
+        profileTitle: userProfile.title,
+        location: userProfile.location,
+        website: userProfile.website,
+        bio: userProfile.bio,
+        avatar: userProfile.avatar,
+        profilePictureUrl: userProfile.avatar, // Save to both fields for compatibility
+        preferences,
+        notifications,
+        privacy,
+        updatedAt: serverTimestamp()
+      });
+      
+      setIsEditing(false);
+      console.log('User data saved successfully');
+    } catch (error) {
+      console.error('Error saving user data:', error);
+      alert('Failed to save changes. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Handle profile image upload
+  const handleImageUpload = async (file: File) => {
+    if (!currentUser) return;
+
+    try {
+      setUploadingImage(true);
+      
+      // Validate file before upload
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        throw new Error('Image size must be less than 5MB');
+      }
+      
+      if (!file.type.startsWith('image/')) {
+        throw new Error('Please select a valid image file');
+      }
+      
+      // Upload to ImageBB using helper function
+      const uploadResult = await uploadImage(file, {
+        maxSizeInMB: 5,
+        allowedTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+      });
+      
+      // Update profile state with new image
+      setUserProfile(prev => ({ ...prev, avatar: uploadResult.url }));
+      
+      // Automatically save the new profile picture to Firebase
+      try {
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          profilePictureUrl: uploadResult.url,
+          avatar: uploadResult.url,
+          updatedAt: serverTimestamp()
+        });
+        console.log('Profile picture saved to Firebase:', uploadResult.url);
+      } catch (saveError) {
+        console.error('Error saving profile picture to Firebase:', saveError);
+        alert('Image uploaded but failed to save to profile. Please save your profile to update.');
+      }
+    } catch (err: any) {
+      console.error('Error uploading image:', err);
+      if (err.code === 'MISSING_API_KEY') {
+        alert('Image upload service not configured. Please contact support.');
+      } else if (err.code === 'FILE_TOO_LARGE') {
+        alert('Image is too large. Please select an image smaller than 5MB.');
+      } else if (err.code === 'INVALID_FILE_TYPE') {
+        alert('Invalid file type. Please select a JPEG, PNG, or WebP image.');
+      } else {
+        alert(err.message || 'Failed to upload image. Please check your internet connection and try again.');
+      }
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  // Handle password change
+  const handlePasswordChange = async () => {
+    if (!currentUser) return;
+
+    // Validate password inputs
+    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+      alert('Please fill in all password fields.');
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      alert('New passwords do not match.');
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      alert('New password must be at least 6 characters long.');
+      return;
+    }
+
+    try {
+      setChangingPassword(true);
+      
+      // Import Firebase Auth functions dynamically
+      const { updatePassword, reauthenticateWithCredential, EmailAuthProvider } = await import('firebase/auth');
+      
+      // Re-authenticate user with current password
+      const credential = EmailAuthProvider.credential(
+        currentUser.email!,
+        passwordData.currentPassword
+      );
+      
+      await reauthenticateWithCredential(currentUser, credential);
+      
+      // Update password
+      await updatePassword(currentUser, passwordData.newPassword);
+      
+      // Update user document in Firestore with password change timestamp
+      await updateDoc(doc(db, 'users', currentUser.uid), {
+        passwordChangedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      
+      // Reset form
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+      setShowPasswordForm(false);
+      
+      alert('Password updated successfully!');
+    } catch (error: any) {
+      console.error('Error changing password:', error);
+      if (error.code === 'auth/wrong-password') {
+        alert('Current password is incorrect.');
+      } else if (error.code === 'auth/weak-password') {
+        alert('New password is too weak. Please choose a stronger password.');
+      } else {
+        alert('Failed to update password. Please try again.');
+      }
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'account', label: 'Account & Security', icon: Shield },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'payments', label: 'Payment Methods', icon: CreditCard },
-    { id: 'privacy', label: 'Privacy', icon: Eye },
-    { id: 'preferences', label: 'Preferences', icon: SettingsIcon }
+    { id: 'privacy', label: 'Privacy', icon: Eye }
   ];
 
   const paymentMethods = [
@@ -138,6 +374,19 @@ const Settings: React.FC = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#ffeee3]/30 pt-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B00]"></div>
+            <span className="ml-3 text-gray-600">Loading settings...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#ffeee3]/30 pt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -195,21 +444,62 @@ const Settings: React.FC = () => {
                   {/* Avatar */}
                   <div className="flex items-center space-x-6">
                     <div className="relative">
-                      <img
-                        src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop&crop=face&auto=format"
-                        alt="Profile"
-                        className="w-24 h-24 rounded-full object-cover"
-                      />
+                      <div className="relative">
+                        {userProfile.avatar ? (
+                          <img
+                            src={userProfile.avatar}
+                            alt="Profile"
+                            className={`w-24 h-24 rounded-full object-cover transition-opacity duration-300 ${
+                              uploadingImage ? 'opacity-50' : 'opacity-100'
+                            }`}
+                            onError={() => {
+                              console.error('Failed to load profile image:', userProfile.avatar);
+                              // Fallback to default avatar on image load error
+                              setUserProfile(prev => ({ ...prev, avatar: '' }));
+                            }}
+                          />
+                        ) : (
+                          <div className={`w-24 h-24 rounded-full bg-gradient-to-br from-[#FF6B00] to-[#FF9F45] flex items-center justify-center transition-opacity duration-300 ${
+                            uploadingImage ? 'opacity-50' : 'opacity-100'
+                          }`}>
+                            <User className="w-8 h-8 text-white" />
+                          </div>
+                        )}
+                        {uploadingImage && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                          </div>
+                        )}
+                      </div>
                       {isEditing && (
-                        <button className="absolute bottom-0 right-0 bg-[#FF6B00] hover:bg-[#FF9F45] text-white p-2 rounded-full shadow-lg transition-colors">
-                          <Camera className="w-4 h-4" />
-                        </button>
+                        <label className="absolute bottom-0 right-0 bg-[#FF6B00] hover:bg-[#FF9F45] text-white p-2 rounded-full shadow-lg transition-colors cursor-pointer">
+                          {uploadingImage ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          ) : (
+                            <Camera className="w-4 h-4" />
+                          )}
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/jpg,image/png,image/webp"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                handleImageUpload(file);
+                              }
+                              // Reset the input value so the same file can be selected again
+                              e.target.value = '';
+                            }}
+                            className="hidden"
+                            disabled={uploadingImage}
+                            title="Upload profile picture (Max 5MB, JPEG/PNG/WebP)"
+                          />
+                        </label>
                       )}
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-[#2E2E2E]">Alex Johnson</h3>
-                      <p className="text-[#2E2E2E]/70">Senior Full Stack Developer</p>
-                      <p className="text-sm text-[#2E2E2E]/60">Member since January 2024</p>
+                      <h3 className="text-lg font-semibold text-[#2E2E2E]">{userProfile.firstName} {userProfile.lastName}</h3>
+                      <p className="text-[#2E2E2E]/70">{userProfile.title || 'Professional'}</p>
+                      <p className="text-sm text-[#2E2E2E]/60">Member since {userProfile.memberSince}</p>
                     </div>
                   </div>
 
@@ -219,7 +509,8 @@ const Settings: React.FC = () => {
                       <label className="block text-sm font-medium text-[#2E2E2E] mb-2">First Name</label>
                       <input
                         type="text"
-                        value="Alex"
+                        value={userProfile.firstName}
+                        onChange={(e) => setUserProfile(prev => ({ ...prev, firstName: e.target.value }))}
                         disabled={!isEditing}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
                       />
@@ -229,7 +520,8 @@ const Settings: React.FC = () => {
                       <label className="block text-sm font-medium text-[#2E2E2E] mb-2">Last Name</label>
                       <input
                         type="text"
-                        value="Johnson"
+                        value={userProfile.lastName}
+                        onChange={(e) => setUserProfile(prev => ({ ...prev, lastName: e.target.value }))}
                         disabled={!isEditing}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
                       />
@@ -239,7 +531,8 @@ const Settings: React.FC = () => {
                       <label className="block text-sm font-medium text-[#2E2E2E] mb-2">Professional Title</label>
                       <input
                         type="text"
-                        value="Senior Full Stack Developer"
+                        value={userProfile.title}
+                        onChange={(e) => setUserProfile(prev => ({ ...prev, title: e.target.value }))}
                         disabled={!isEditing}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
                       />
@@ -249,7 +542,8 @@ const Settings: React.FC = () => {
                       <label className="block text-sm font-medium text-[#2E2E2E] mb-2">Location</label>
                       <input
                         type="text"
-                        value="San Francisco, CA"
+                        value={userProfile.location}
+                        onChange={(e) => setUserProfile(prev => ({ ...prev, location: e.target.value }))}
                         disabled={!isEditing}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
                       />
@@ -259,7 +553,8 @@ const Settings: React.FC = () => {
                       <label className="block text-sm font-medium text-[#2E2E2E] mb-2">Website</label>
                       <input
                         type="url"
-                        value="https://alexjohnson.dev"
+                        value={userProfile.website}
+                        onChange={(e) => setUserProfile(prev => ({ ...prev, website: e.target.value }))}
                         disabled={!isEditing}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
                       />
@@ -268,7 +563,8 @@ const Settings: React.FC = () => {
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-[#2E2E2E] mb-2">Bio</label>
                       <textarea
-                        value="Passionate full-stack developer with 5+ years of experience building scalable web applications."
+                        value={userProfile.bio}
+                        onChange={(e) => setUserProfile(prev => ({ ...prev, bio: e.target.value }))}
                         disabled={!isEditing}
                         rows={4}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 resize-none"
@@ -280,17 +576,28 @@ const Settings: React.FC = () => {
                     <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
                       <button
                         onClick={() => setIsEditing(false)}
-                        className="border border-gray-300 text-[#2E2E2E] hover:bg-gray-50 px-6 py-2 rounded-lg font-medium transition-colors flex items-center"
+                        disabled={isSaving}
+                        className="border border-gray-300 text-[#2E2E2E] hover:bg-gray-50 px-6 py-2 rounded-lg font-medium transition-colors flex items-center disabled:opacity-50"
                       >
                         <X className="w-4 h-4 mr-2" />
                         Cancel
                       </button>
                       <button
-                        onClick={() => setIsEditing(false)}
-                        className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center"
+                        onClick={saveUserData}
+                        disabled={isSaving}
+                        className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center disabled:opacity-50"
                       >
-                        <Save className="w-4 h-4 mr-2" />
-                        Save Changes
+                        {isSaving ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-4 h-4 mr-2" />
+                            Save Changes
+                          </>
+                        )}
                       </button>
                     </div>
                   )}
@@ -304,15 +611,18 @@ const Settings: React.FC = () => {
 
                   {/* Email & Password */}
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                    <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-gray-50">
                       <div className="flex items-center space-x-3">
-                        <Mail className="w-5 h-5 text-[#FF6B00]" />
+                        <Mail className="w-5 h-5 text-gray-500" />
                         <div>
                           <p className="font-medium text-[#2E2E2E]">Email Address</p>
-                          <p className="text-sm text-[#2E2E2E]/60">alex.johnson@email.com</p>
+                          <p className="text-sm text-[#2E2E2E]/60">{userProfile.email}</p>
                         </div>
                       </div>
-                      <button className="text-[#FF6B00] hover:text-[#FF9F45] font-medium">Change</button>
+                      <div className="flex items-center space-x-2">
+                        <Lock className="w-4 h-4 text-gray-400" />
+                        <span className="text-sm text-gray-500 font-medium">Locked</span>
+                      </div>
                     </div>
                     
                     <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
@@ -320,11 +630,86 @@ const Settings: React.FC = () => {
                         <Lock className="w-5 h-5 text-[#FF6B00]" />
                         <div>
                           <p className="font-medium text-[#2E2E2E]">Password</p>
-                          <p className="text-sm text-[#2E2E2E]/60">Last changed 2 days ago</p>
+                          <p className="text-sm text-[#2E2E2E]/60">••••••••••••</p>
                         </div>
                       </div>
-                      <button className="text-[#FF6B00] hover:text-[#FF9F45] font-medium">Change</button>
+                      <button 
+                        onClick={() => setShowPasswordForm(!showPasswordForm)}
+                        className="text-[#FF6B00] hover:text-[#FF9F45] font-medium transition-colors"
+                      >
+                        {showPasswordForm ? 'Cancel' : 'Change'}
+                      </button>
                     </div>
+
+                    {/* Password Change Form */}
+                    {showPasswordForm && (
+                      <div className="p-4 border border-[#FF6B00]/20 bg-[#ffeee3]/30 rounded-lg space-y-4">
+                        <h4 className="font-medium text-[#2E2E2E] mb-3">Change Password</h4>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-[#2E2E2E] mb-2">Current Password</label>
+                          <input
+                            type="password"
+                            value={passwordData.currentPassword}
+                            onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
+                            placeholder="Enter current password"
+                            disabled={changingPassword}
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-[#2E2E2E] mb-2">New Password</label>
+                          <input
+                            type="password"
+                            value={passwordData.newPassword}
+                            onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
+                            placeholder="Enter new password (min 6 characters)"
+                            disabled={changingPassword}
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-[#2E2E2E] mb-2">Confirm New Password</label>
+                          <input
+                            type="password"
+                            value={passwordData.confirmPassword}
+                            onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
+                            placeholder="Confirm new password"
+                            disabled={changingPassword}
+                          />
+                        </div>
+                        
+                        <div className="flex justify-end space-x-3 pt-2">
+                          <button
+                            onClick={() => {
+                              setShowPasswordForm(false);
+                              setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                            }}
+                            disabled={changingPassword}
+                            className="border border-gray-300 text-[#2E2E2E] hover:bg-gray-50 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handlePasswordChange}
+                            disabled={changingPassword || !passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
+                            className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center"
+                          >
+                            {changingPassword ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                Updating...
+                              </>
+                            ) : (
+                              'Update Password'
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Two-Factor Authentication */}
@@ -570,110 +955,24 @@ const Settings: React.FC = () => {
                 </div>
               )}
 
-              {/* Preferences Tab */}
-              {activeTab === 'preferences' && (
-                <div className="space-y-6">
-                  <h2 className="text-xl font-semibold text-[#2E2E2E]">Preferences</h2>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-[#2E2E2E] mb-2">Theme</label>
-                      <select
-                        value={preferences.theme}
-                        onChange={(e) => setPreferences(prev => ({ ...prev, theme: e.target.value }))}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
-                      >
-                        <option value="system">System</option>
-                        <option value="light">Light</option>
-                        <option value="dark">Dark</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-[#2E2E2E] mb-2">Language</label>
-                      <select
-                        value={preferences.language}
-                        onChange={(e) => setPreferences(prev => ({ ...prev, language: e.target.value }))}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
-                      >
-                        <option value="en">English</option>
-                        <option value="es">Spanish</option>
-                        <option value="fr">French</option>
-                        <option value="de">German</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-[#2E2E2E] mb-2">Timezone</label>
-                      <select
-                        value={preferences.timezone}
-                        onChange={(e) => setPreferences(prev => ({ ...prev, timezone: e.target.value }))}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
-                      >
-                        <option value="America/New_York">Eastern Time (EST)</option>
-                        <option value="America/Chicago">Central Time (CST)</option>
-                        <option value="America/Los_Angeles">Pacific Time (PST)</option>
-                        <option value="Europe/London">London (GMT)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-[#2E2E2E] mb-2">Currency</label>
-                      <select
-                        value={preferences.currency}
-                        onChange={(e) => setPreferences(prev => ({ ...prev, currency: e.target.value }))}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
-                      >
-                        <option value="USD">USD ($)</option>
-                        <option value="EUR">EUR (€)</option>
-                        <option value="GBP">GBP (£)</option>
-                        <option value="CAD">CAD (C$)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Additional Preferences */}
-                  <div className="space-y-4 pt-4 border-t border-gray-200">
-                    <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                      <div>
-                        <p className="font-medium text-[#2E2E2E]">Auto-accept project invitations</p>
-                        <p className="text-sm text-[#2E2E2E]/60">Automatically accept invitations from verified clients</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={preferences.autoAcceptInvites}
-                          onChange={(e) => setPreferences(prev => ({ ...prev, autoAcceptInvites: e.target.checked }))}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#FF6B00]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF6B00]"></div>
-                      </label>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                      <div>
-                        <p className="font-medium text-[#2E2E2E]">Weekly digest email</p>
-                        <p className="text-sm text-[#2E2E2E]/60">Get a summary of your activity and opportunities</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={preferences.weeklyDigest}
-                          onChange={(e) => setPreferences(prev => ({ ...prev, weeklyDigest: e.target.checked }))}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#FF6B00]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF6B00]"></div>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Save Button */}
               <div className="flex justify-end pt-6 border-t border-gray-200">
-                <button className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center">
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Changes
+                <button 
+                  onClick={saveUserData}
+                  disabled={isSaving}
+                  className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Save Changes
+                    </>
+                  )}
                 </button>
               </div>
             </div>

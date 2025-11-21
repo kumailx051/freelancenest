@@ -89,32 +89,6 @@ const FreelancerDashboard: React.FC = () => {
     }
   ];
 
-  const upcomingTasks = [
-    {
-      id: 1,
-      task: 'Submit milestone: Database design',
-      project: 'E-commerce Website',
-      dueTime: '2:00 PM',
-      priority: 'high'
-    },
-    {
-      id: 2,
-      task: 'Client meeting: Project review',
-      project: 'Mobile App UI/UX',
-      dueTime: '4:30 PM',
-      priority: 'medium'
-    },
-    {
-      id: 3,
-      task: 'Upload wireframes for approval',
-      project: 'Mobile App UI/UX',
-      dueTime: 'Tomorrow',
-      priority: 'low'
-    }
-  ];
-
-
-
   return (
     <div className="min-h-screen bg-[#ffeee3]/30 pt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -384,39 +358,6 @@ const FreelancerDashboard: React.FC = () => {
 
           {/* Right Column */}
           <div className="space-y-8">
-            {/* Today's Tasks */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-              <div className="p-6 border-b border-gray-100">
-                <h2 className="text-xl font-bold text-[#2E2E2E] flex items-center">
-                  <Clock className="w-5 h-5 text-[#FF6B00] mr-2" />
-                  Today's Tasks
-                </h2>
-              </div>
-              <div className="p-6">
-                <div className="space-y-4">
-                  {upcomingTasks.map((task) => (
-                    <div key={task.id} className="flex items-start space-x-3">
-                      <div className={`w-3 h-3 rounded-full mt-2 ${
-                        task.priority === 'high' ? 'bg-red-500' :
-                        task.priority === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
-                      }`}></div>
-                      <div className="flex-1">
-                        <p className="text-[#2E2E2E] font-medium text-sm">{task.task}</p>
-                        <p className="text-[#2E2E2E]/60 text-xs">{task.project}</p>
-                        <p className="text-[#FF6B00] text-xs font-medium">{task.dueTime}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <Link 
-                  to="/freelancer/calendar"
-                  className="block w-full text-center bg-[#ffeee3] text-[#FF6B00] hover:bg-[#FF6B00] hover:text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors mt-4"
-                >
-                  View Calendar
-                </Link>
-              </div>
-            </div>
-
             {/* Earnings Summary */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100">
               <div className="p-6 border-b border-gray-100">

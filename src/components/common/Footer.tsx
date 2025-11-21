@@ -14,23 +14,16 @@ const Footer: React.FC = () => {
     'For Freelancers': [
       { label: 'How to Find Work', href: '/how-to-find-work' },
       { label: 'Direct Contracts', href: '/direct-contracts' },
-      { label: 'Find Freelance Jobs', href: '/find-freelance-jobs' },
       { label: 'Ways to Earn', href: '/ways-to-earn' },
       { label: 'Freelancer Plus', href: '/freelancer-plus' }
     ],
     'Resources': [
       { label: 'Help Center', href: '/resources/help-center' },
-      { label: 'Success Stories', href: '/resources/success-stories' },
-      { label: 'Reviews', href: '/resources/reviews' },
-      { label: 'Resource Library', href: '/resources/library' },
-      { label: 'Blog', href: '/resources/blog' }
+      { label: 'Resource Library', href: '/resources/library' }
     ],
     'Company': [
       { label: 'About Us', href: '/company/about' },
-      { label: 'Leadership', href: '/company/leadership' },
-      { label: 'Investor Relations', href: '/company/investors' },
-      { label: 'Careers', href: '/company/careers' },
-      { label: 'Press', href: '/company/press' }
+      { label: 'Careers', href: '/company/careers' }
     ]
   };
 

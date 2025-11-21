@@ -12,7 +12,7 @@ const HowToHirePage: React.FC = () => {
             <p className="text-xl mb-8 text-[#ffeee3]">
               Find, hire, and collaborate with the best freelancers around the world on FreelanceNest.
             </p>
-            <button className="bg-white text-[#FF6B00] border-2 border-[#FF6B00] px-6 py-3 rounded-lg font-semibold hover:bg-[#FF6B00] hover:text-white transition-all">Start Hiring Today</button>
+            <Link to="/login" className="bg-white text-[#FF6B00] border-2 border-[#FF6B00] px-6 py-3 rounded-lg font-semibold hover:bg-[#FF6B00] hover:text-white transition-all inline-block">Start Hiring Today</Link>
           </div>
         </div>
       </section>
@@ -57,9 +57,9 @@ const HowToHirePage: React.FC = () => {
                   <span className="text-[#2E2E2E]">Negotiate terms directly with freelancers</span>
                 </li>
               </ul>
-              <button className="w-full bg-[#FF6B00] hover:bg-[#FF9F45] text-white font-medium py-3 rounded-lg transition-colors duration-200">
+              <Link to="/login" className="w-full bg-[#FF6B00] hover:bg-[#FF9F45] text-white font-medium py-3 rounded-lg transition-colors duration-200 inline-block text-center">
                 Post a Job
-              </button>
+              </Link>
             </div>
 
             {/* Gig-Based Option */}
@@ -91,9 +91,9 @@ const HowToHirePage: React.FC = () => {
                   <span className="text-[#2E2E2E]">See reviews and samples before purchasing</span>
                 </li>
               </ul>
-              <button className="w-full bg-[#FF6B00] hover:bg-[#FF9F45] text-white font-medium py-3 rounded-lg transition-colors duration-200">
+              <Link to="/login" className="w-full bg-[#FF6B00] hover:bg-[#FF9F45] text-white font-medium py-3 rounded-lg transition-colors duration-200 inline-block text-center">
                 Browse Gigs
-              </button>
+              </Link>
             </div>
           </div>
 
@@ -226,12 +226,12 @@ const HowToHirePage: React.FC = () => {
               Start your project today and connect with talented freelancers ready to help your business grow.
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-4">
-              <button className="bg-[#ffeee3] text-[#2E2E2E] hover:bg-white font-medium px-8 py-4 rounded-lg text-lg transition-colors duration-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5">
+              <Link to="/login" className="bg-[#ffeee3] text-[#2E2E2E] hover:bg-white font-medium px-8 py-4 rounded-lg text-lg transition-colors duration-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 inline-block text-center">
                 Post a Job
-              </button>
-              <button className="bg-[#2E2E2E] text-white border border-white hover:bg-[#2E2E2E]/80 font-medium px-8 py-4 rounded-lg text-lg transition-colors duration-200 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5">
+              </Link>
+              <Link to="/login" className="bg-[#2E2E2E] text-white border border-white hover:bg-[#2E2E2E]/80 font-medium px-8 py-4 rounded-lg text-lg transition-colors duration-200 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 inline-block text-center">
                 Browse Gigs
-              </button>
+              </Link>
             </div>
           </div>
         </div>

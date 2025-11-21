@@ -385,15 +385,9 @@ const HelpCenterPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row justify-center gap-4">
               <Link 
                 to="#" 
-                className="bg-[#FF6B00] text-white hover:bg-[#FF6B00]/90 font-medium px-8 py-4 rounded-lg transition-colors duration-200 text-center"
+                className="bg-[#FF6B00] text-white hover:bg-orange-600 font-medium px-8 py-4 rounded-lg transition-colors duration-200 text-center"
               >
                 Visit Community Forum
-              </Link>
-              <Link 
-                to="/resources/success-stories" 
-                className="bg-transparent border border-[#ffeee3] text-white hover:bg-white/10 font-medium px-8 py-4 rounded-lg transition-colors duration-200 text-center"
-              >
-                Read Success Stories
               </Link>
             </div>
           </div>

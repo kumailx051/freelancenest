@@ -1,5 +1,4 @@
 ﻿import React from 'react';
-import { Link } from 'react-router-dom';
 
 // Guidelines categories
 const guidelinesCategories = [
@@ -240,23 +239,7 @@ const CommunityGuidelinesPage: React.FC = () => {
                       ))}
                     </div>
                     
-                    <div className="mt-6 pt-4 border-t border-[#ffeee3]">
-                      <Link 
-                        to={
-                          category.title === "Conduct & Communication" ? "/guidelines/conduct" :
-                          category.title === "Work Quality & Delivery" ? "/guidelines/work-quality" :
-                          category.title === "Payment & Billing" ? "/guidelines/payment" :
-                          category.title === "Privacy & Confidentiality" ? "/guidelines/privacy" :
-                          "/guidelines/dispute-resolution"
-                        }
-                        className="text-primary-600 hover:text-primary-700 text-sm font-medium flex items-center group-hover:translate-x-1 transition-transform"
-                      >
-                        Learn more
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                        </svg>
-                      </Link>
-                    </div>
+
                   </div>
                 </div>
               </div>
@@ -328,9 +311,9 @@ const CommunityGuidelinesPage: React.FC = () => {
                   <p className="opacity-90 mb-6">
                     If you encounter behavior that violates these guidelines, please report it immediately.
                   </p>
-                  <Link to="/report-problem" className="inline-block px-5 py-3 bg-white text-[#FF6B00] rounded-lg font-medium hover:bg-[#ffeee3] transition-colors">
+                  <button className="inline-block px-5 py-3 bg-white text-[#FF6B00] rounded-lg font-medium hover:bg-[#ffeee3] transition-colors">
                     Report a Violation
-                  </Link>
+                  </button>
                 </div>
                 <div className="md:w-2/3 p-8">
                   <h4 className="text-xl font-bold mb-4 text-[#2E2E2E]">How to Report</h4>

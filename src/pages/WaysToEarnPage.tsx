@@ -169,9 +169,6 @@ const WaysToEarnPage: React.FC = () => {
                     <span className="text-[#2E2E2E]">Develop long-term client relationships</span>
                   </li>
                 </ul>
-                <Link to="/ways-to-earn/project-bidding" className="w-full bg-white border border-[#FF6B00] text-[#FF6B00] hover:bg-[#ffeee3] font-medium py-2 rounded transition-colors duration-200 inline-block text-center">
-                  Find Projects
-                </Link>
               </div>
             </div>
 
@@ -202,9 +199,6 @@ const WaysToEarnPage: React.FC = () => {
                     <span className="text-[#2E2E2E]">Offer tiered pricing options</span>
                   </li>
                 </ul>
-                <Link to="/ways-to-earn/service-packages" className="w-full bg-white border border-[#FF6B00] text-[#FF6B00] hover:bg-[#ffeee3] font-medium py-2 rounded transition-colors duration-200 inline-block text-center">
-                  Create Packages
-                </Link>
               </div>
             </div>
 
@@ -235,9 +229,6 @@ const WaysToEarnPage: React.FC = () => {
                     <span className="text-[#2E2E2E]">Build your professional network</span>
                   </li>
                 </ul>
-                <Link to="/ways-to-earn/project-collaboration" className="w-full bg-white border border-[#FF6B00] text-[#FF6B00] hover:bg-[#ffeee3] font-medium py-2 rounded transition-colors duration-200 inline-block text-center">
-                  Find Collaborators
-                </Link>
               </div>
             </div>
           </div>
@@ -265,12 +256,6 @@ const WaysToEarnPage: React.FC = () => {
                 <p className="text-[#2E2E2E] mb-4">
                   Get certified in your areas of expertise and earn by creating assessment tests for your skills. You'll receive compensation each time a freelancer takes your test.
                 </p>
-                <Link to="/ways-to-earn/skill-certification" className="text-[#FF6B00] font-medium hover:text-[#2E2E2E] hover:underline flex items-center transition-colors">
-                  Learn more
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
               </div>
             </div>
 
@@ -284,12 +269,6 @@ const WaysToEarnPage: React.FC = () => {
                 <p className="text-[#2E2E2E] mb-4">
                   Invite other freelancers or clients to FreelanceNest and earn a percentage of platform fees when they complete projects. The more successful your referrals are, the more you earn.
                 </p>
-                <Link to="/ways-to-earn/referral-program" className="text-[#FF6B00] font-medium hover:text-[#2E2E2E] hover:underline flex items-center transition-colors">
-                  Learn more
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
               </div>
             </div>
 
@@ -303,12 +282,6 @@ const WaysToEarnPage: React.FC = () => {
                 <p className="text-[#2E2E2E] mb-4">
                   Create tutorials, write articles, or answer questions in our community forum. Top contributors receive recognition and financial rewards each month.
                 </p>
-                <Link to="/ways-to-earn/community-contributions" className="text-[#FF6B00] font-medium hover:text-[#2E2E2E] hover:underline flex items-center transition-colors">
-                  Learn more
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
               </div>
             </div>
 
@@ -322,35 +295,10 @@ const WaysToEarnPage: React.FC = () => {
                 <p className="text-[#2E2E2E] mb-4">
                   Get matched with enterprise-level clients looking for long-term partnerships. These projects typically have higher budgets and more stability.
                 </p>
-                <Link to="/ways-to-earn/enterprise-freelancing" className="text-[#FF6B00] font-medium hover:text-[#2E2E2E] hover:underline flex items-center transition-colors">
-                  Learn more
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
               </div>
             </div>
             
-            {/* Freelancer Competitions */}
-            <div className="bg-[#ffeee3]/50 rounded-xl p-8 flex flex-col md:flex-row gap-6 items-start hover:bg-[#ffeee3]/70 transition-colors duration-300">
-              <div className="bg-[#ffeee3] text-[#FF6B00] p-3 rounded-lg">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="text-xl font-bold mb-3 text-[#2E2E2E]">Freelancer Competitions</h3>
-                <p className="text-[#2E2E2E] mb-4">
-                  Showcase your skills in competitions sponsored by top brands. Win cash prizes, gain recognition, and enhance your portfolio with award-winning work.
-                </p>
-                <Link to="/ways-to-earn/freelancer-competitions" className="text-[#FF6B00] font-medium hover:text-[#2E2E2E] hover:underline flex items-center transition-colors">
-                  Learn more
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
-              </div>
-            </div>
+
           </div>
         </div>
       </section>
@@ -550,7 +498,7 @@ const WaysToEarnPage: React.FC = () => {
               <Link to="/login" className="bg-[#FF6B00] text-white hover:bg-[#FF6B00]/90 font-medium px-8 py-4 rounded-lg text-lg transition-colors duration-200 inline-block shadow-lg hover:shadow-xl">
                 Start Earning Now
               </Link>
-              <Link to="/how-to-find-work" className="bg-transparent border border-[#FF6B00] text-[#FF6B00] hover:bg-[#FF6B00]/10 font-medium px-8 py-4 rounded-lg text-lg transition-colors duration-200 inline-block">
+              <Link to="/login" className="bg-transparent border border-[#FF6B00] text-[#FF6B00] hover:bg-[#FF6B00]/10 font-medium px-8 py-4 rounded-lg text-lg transition-colors duration-200 inline-block">
                 Learn More
               </Link>
             </div>

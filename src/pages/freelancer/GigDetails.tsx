@@ -13,7 +13,9 @@ import {
   RefreshCcw,
   CheckCircle,
   Star,
-  Calendar
+  Calendar,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 interface Gig {
@@ -69,6 +71,34 @@ const GigDetails: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPackage, setSelectedPackage] = useState<'basic' | 'standard' | 'premium'>('basic');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const nextImage = () => {
+    if (gig?.gallery && gig.gallery.length > 1) {
+      setCurrentImageIndex((prev) => (prev + 1) % gig.gallery.length);
+    }
+  };
+
+  const prevImage = () => {
+    if (gig?.gallery && gig.gallery.length > 1) {
+      setCurrentImageIndex((prev) => (prev - 1 + gig.gallery.length) % gig.gallery.length);
+    }
+  };
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (gig?.gallery && gig.gallery.length > 1) {
+        if (event.key === 'ArrowLeft') {
+          prevImage();
+        } else if (event.key === 'ArrowRight') {
+          nextImage();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [gig?.gallery]);
 
   useEffect(() => {
     const fetchGig = async () => {
@@ -191,7 +221,7 @@ const GigDetails: React.FC = () => {
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
               {gig.gallery && gig.gallery.length > 0 ? (
                 <div>
-                  <div className="aspect-video bg-gray-100">
+                  <div className="aspect-video bg-gray-100 relative group">
                     <img
                       src={gig.gallery[currentImageIndex]}
                       alt={gig.title}
@@ -201,6 +231,31 @@ const GigDetails: React.FC = () => {
                         target.src = 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=450&fit=crop&crop=center';
                       }}
                     />
+                    
+                    {/* Navigation Arrows */}
+                    {gig.gallery.length > 1 && (
+                      <>
+                        <button
+                          onClick={prevImage}
+                          className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 hover:bg-white text-gray-700 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-lg hover:shadow-xl"
+                          aria-label="Previous image"
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={nextImage}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 hover:bg-white text-gray-700 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-lg hover:shadow-xl"
+                          aria-label="Next image"
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
+                        
+                        {/* Image Counter */}
+                        <div className="absolute bottom-4 right-4 bg-black/50 text-white text-sm px-3 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          {currentImageIndex + 1} / {gig.gallery.length}
+                        </div>
+                      </>
+                    )}
                   </div>
                   {gig.gallery.length > 1 && (
                     <div className="p-4 flex space-x-2 overflow-x-auto">

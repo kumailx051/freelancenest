@@ -1,4 +1,5 @@
 ﻿import React from 'react';
+import { Link } from 'react-router-dom';
 
 const HowToFindWorkPage: React.FC = () => {
   return (
@@ -11,7 +12,9 @@ const HowToFindWorkPage: React.FC = () => {
             <p className="text-xl mb-8 text-[#ffeee3]">
               Discover opportunities and build your freelance career on FreelanceNest.
             </p>
-            <button className="bg-white text-[#FF6B00] border-2 border-[#FF6B00] px-6 py-3 rounded-lg font-semibold hover:bg-[#FF6B00] hover:text-white transition-all">Start Your Journey</button>
+            <Link to="/login" className="bg-white text-[#FF6B00] border-2 border-[#FF6B00] px-6 py-3 rounded-lg font-semibold hover:bg-[#FF6B00] hover:text-white transition-all inline-block">
+              Start Your Journey
+            </Link>
           </div>
         </div>
       </section>
@@ -189,73 +192,7 @@ const HowToFindWorkPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Success Stories Section */}
-      <section className="py-16 bg-[#ffeee3]/50">
-        <div className="section-container">
-          <h2 className="text-3xl font-bold text-center mb-12 text-[#2E2E2E]">
-            <span className="bg-gradient-to-r from-[#FF6B00] to-[#FF6B00] bg-clip-text text-transparent">Success</span> Stories
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Success Story 1 */}
-            <div className="bg-white p-8 rounded-xl shadow-sm border border-[#ffeee3] hover:border-[#FF6B00] transition-all duration-300">
-              <div className="flex items-center mb-6">
-                <img
-                  src="https://randomuser.me/api/portraits/women/33.jpg"
-                  alt="Sarah J."
-                  className="w-16 h-16 rounded-full mr-4 border-2 border-[#ffeee3]"
-                />
-                <div>
-                  <h3 className="font-bold text-lg text-[#2E2E2E]">Sarah J.</h3>
-                  <p className="text-[#FF6B00]">UX Designer</p>
-                </div>
-              </div>
-              <p className="text-[#2E2E2E]/80 mb-4">
-                "I started on FreelanceNest with zero clients. Within 3 months, I was fully booked with UI/UX projects and have since been able to increase my rates by 40%."
-              </p>
-              <p className="text-sm text-[#2E2E2E]/60">Freelancing for 2 years • $85k earned</p>
-            </div>
-            
-            {/* Success Story 2 */}
-            <div className="bg-white p-8 rounded-xl shadow-sm border border-[#ffeee3] hover:border-[#FF6B00] transition-all duration-300">
-              <div className="flex items-center mb-6">
-                <img
-                  src="https://randomuser.me/api/portraits/men/45.jpg"
-                  alt="Michael T."
-                  className="w-16 h-16 rounded-full mr-4 border-2 border-[#ffeee3]"
-                />
-                <div>
-                  <h3 className="font-bold text-lg text-[#2E2E2E]">Michael T.</h3>
-                  <p className="text-[#FF6B00]">Full Stack Developer</p>
-                </div>
-              </div>
-              <p className="text-[#2E2E2E]/80 mb-4">
-                "The platform's advanced matching algorithm connected me with clients who perfectly matched my skill set. I'm now working with clients from three continents."
-              </p>
-              <p className="text-sm text-[#2E2E2E]/60">Freelancing for 3 years • $120k earned</p>
-            </div>
-            
-            {/* Success Story 3 */}
-            <div className="bg-white p-8 rounded-xl shadow-sm border border-[#ffeee3] hover:border-[#FF6B00] transition-all duration-300">
-              <div className="flex items-center mb-6">
-                <img
-                  src="https://randomuser.me/api/portraits/women/64.jpg"
-                  alt="Priya S."
-                  className="w-16 h-16 rounded-full mr-4 border-2 border-[#ffeee3]"
-                />
-                <div>
-                  <h3 className="font-bold text-lg text-[#2E2E2E]">Priya S.</h3>
-                  <p className="text-[#FF6B00]">Content Strategist</p>
-                </div>
-              </div>
-              <p className="text-[#2E2E2E]/80 mb-4">
-                "I transitioned from a corporate job to freelancing through FreelanceNest. The secure payment system and client vetting process gave me the confidence to make the leap."
-              </p>
-              <p className="text-sm text-[#2E2E2E]/60">Freelancing for 1 year • $65k earned</p>
-            </div>
-          </div>
-        </div>
-      </section>
+
 
       {/* CTA Section */}
       <section className="py-16 bg-[#2E2E2E] text-white">
@@ -267,9 +204,9 @@ const HowToFindWorkPage: React.FC = () => {
             <p className="text-xl text-[#ffeee3]/90 mb-8">
               Join thousands of successful freelancers who have built thriving careers on FreelanceNest.
             </p>
-            <button className="bg-[#FF6B00] text-white hover:bg-[#FF6B00]/90 font-medium px-8 py-4 rounded-lg text-lg transition-colors duration-200">
+            <Link to="/login" className="bg-[#FF6B00] text-white hover:bg-[#FF6B00]/90 font-medium px-8 py-4 rounded-lg text-lg transition-colors duration-200 inline-block">
               Create Your Profile
-            </button>
+            </Link>
           </div>
         </div>
       </section>
