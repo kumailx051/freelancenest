@@ -15,7 +15,8 @@ import {
   Share2,
   Search,
   Award,
-  Heart
+  Heart,
+  RefreshCw
 } from 'lucide-react';
 
 interface PortfolioItem {
@@ -54,39 +55,52 @@ const Portfolio: React.FC = () => {
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
 
   // Fetch portfolio projects from Firebase
-  useEffect(() => {
-    const fetchProjects = async () => {
-      if (!currentUser?.uid) {
-        setIsLoading(false);
-        return;
-      }
+  const fetchProjects = async () => {
+    if (!currentUser?.uid) {
+      setIsLoading(false);
+      return;
+    }
 
-      try {
-        const q = query(
-          collection(db, 'portfolio_projects'),
-          where('userId', '==', currentUser.uid),
-          orderBy('createdAt', 'desc')
-        );
-        
-        const querySnapshot = await getDocs(q);
-        const projects: PortfolioItem[] = [];
-        
-        querySnapshot.forEach((doc) => {
-          projects.push({
-            id: doc.id,
-            ...doc.data()
-          } as PortfolioItem);
-        });
-        
-        setPortfolioItems(projects);
-      } catch (error) {
-        console.error('Error fetching portfolio projects:', error);
-      } finally {
-        setIsLoading(false);
+    try {
+      const q = query(
+        collection(db, 'portfolio_projects'),
+        where('userId', '==', currentUser.uid),
+        orderBy('createdAt', 'desc')
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const projects: PortfolioItem[] = [];
+      
+      querySnapshot.forEach((doc) => {
+        projects.push({
+          id: doc.id,
+          ...doc.data()
+        } as PortfolioItem);
+      });
+      
+      setPortfolioItems(projects);
+      console.log(`Fetched ${projects.length} portfolio projects from Firebase`);
+    } catch (error) {
+      console.error('Error fetching portfolio projects:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProjects();
+  }, [currentUser]);
+
+  // Add focus event listener to refresh data when returning to the page
+  useEffect(() => {
+    const handleFocus = () => {
+      if (currentUser?.uid) {
+        fetchProjects();
       }
     };
 
-    fetchProjects();
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, [currentUser]);
 
   const handleDeleteProject = async (projectId: string) => {
@@ -147,6 +161,14 @@ const Portfolio: React.FC = () => {
             <p className="text-[#2E2E2E]/70">Showcase your best work and achievements</p>
           </div>
           <div className="flex space-x-3">
+            <button 
+              onClick={fetchProjects}
+              disabled={isLoading}
+              className="border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-lg font-medium transition-colors flex items-center disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
             <button className="border border-[#FF6B00] text-[#FF6B00] hover:bg-[#ffeee3] px-4 py-2 rounded-lg font-medium transition-colors flex items-center">
               <Share2 className="w-4 h-4 mr-2" />
               Share Portfolio
@@ -165,10 +187,11 @@ const Portfolio: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-[#2E2E2E]/70">Projects</span>
+              <span className="text-sm font-medium text-[#2E2E2E]/70">Total Projects</span>
               <Code className="w-4 h-4 text-[#FF6B00]" />
             </div>
-            <p className="text-2xl font-bold text-[#2E2E2E]">{stats.totalProjects}</p>
+            <p className="text-2xl font-bold text-[#FF6B00]">{stats.totalProjects}</p>
+            <p className="text-xs text-[#2E2E2E]/50 mt-1">From Firebase</p>
           </div>
           
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">

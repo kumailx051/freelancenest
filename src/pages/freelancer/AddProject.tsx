@@ -48,6 +48,7 @@ const AddProject: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [successMessage, setSuccessMessage] = useState('');
   const [newTag, setNewTag] = useState('');
   const [newTechnology, setNewTechnology] = useState('');
   const [newFeature, setNewFeature] = useState('');
@@ -288,14 +289,19 @@ const AddProject: React.FC = () => {
         // Update existing project
         await updateDoc(doc(db, 'portfolio_projects', id), projectDataToSave);
         console.log('Project updated successfully');
+        setSuccessMessage('Project updated successfully!');
       } else {
         // Create new project
         projectDataToSave.createdAt = serverTimestamp();
         const docRef = await addDoc(collection(db, 'portfolio_projects'), projectDataToSave);
         console.log('Project created successfully with ID:', docRef.id);
+        setSuccessMessage('Project added successfully!');
       }
       
-      navigate('/freelancer/portfolio');
+      // Show success message briefly before navigating
+      setTimeout(() => {
+        navigate('/freelancer/portfolio');
+      }, 1500);
     } catch (error) {
       console.error('Error saving project:', error);
       setErrors(prev => ({
@@ -374,6 +380,16 @@ const AddProject: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Success Message */}
+        {successMessage && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+            <div className="text-green-700 flex items-center">
+              <CheckCircle className="w-5 h-5 mr-2" />
+              {successMessage}
+            </div>
+          </div>
+        )}
 
         {/* Error Display */}
         {(errors.save || errors.upload) && (
