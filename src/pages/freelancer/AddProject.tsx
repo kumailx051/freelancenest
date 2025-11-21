@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { collection, addDoc, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import { useAuth } from '../../contexts/AuthContext';
 import { 
   ArrowLeft, 
   Upload, 
@@ -30,14 +33,20 @@ interface ProjectData {
   features: string[];
   testimonial: string;
   rating: number;
+  userId?: string;
+  createdAt?: any;
+  updatedAt?: any;
+  status?: 'published' | 'draft';
 }
 
 const AddProject: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { currentUser } = useAuth();
   const isEditing = Boolean(id);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [newTag, setNewTag] = useState('');
   const [newTechnology, setNewTechnology] = useState('');
@@ -59,7 +68,8 @@ const AddProject: React.FC = () => {
     technologies: [],
     features: [],
     testimonial: '',
-    rating: 5
+    rating: 5,
+    status: 'published'
   });
 
   const categories = [
@@ -90,6 +100,73 @@ const AddProject: React.FC = () => {
     '6+ months'
   ];
 
+  // ImageBB API configuration
+  const IMAGEBB_API_KEY = 'af89815a37ad8b0ac30f6e34839d6735';
+
+  const uploadToImageBB = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('key', IMAGEBB_API_KEY);
+
+    try {
+      const response = await fetch('https://api.imgbb.com/1/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        return data.data.url;
+      } else {
+        throw new Error(data.error?.message || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('ImageBB upload failed:', error);
+      throw new Error('Failed to upload image. Please try again.');
+    }
+  };
+
+  // Load existing project data if editing
+  useEffect(() => {
+    const loadProject = async () => {
+      if (!isEditing || !id || !currentUser?.uid) return;
+
+      setIsLoading(true);
+      try {
+        const projectDoc = await getDoc(doc(db, 'portfolio_projects', id));
+        if (projectDoc.exists()) {
+          const data = projectDoc.data();
+          // Verify the project belongs to the current user
+          if (data.userId === currentUser.uid) {
+            setProjectData({
+              ...data,
+              completedDate: data.completedDate || '',
+              duration: data.duration || '',
+              budget: data.budget || '',
+              liveUrl: data.liveUrl || '',
+              githubUrl: data.githubUrl || '',
+              client: data.client || '',
+              testimonial: data.testimonial || '',
+              rating: data.rating || 5,
+              status: data.status || 'published'
+            } as ProjectData);
+          } else {
+            navigate('/freelancer/portfolio');
+          }
+        } else {
+          navigate('/freelancer/portfolio');
+        }
+      } catch (error) {
+        console.error('Error loading project:', error);
+        navigate('/freelancer/portfolio');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProject();
+  }, [id, isEditing, currentUser, navigate]);
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -108,28 +185,34 @@ const AddProject: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleImageUpload = (files: FileList | null, type: 'thumbnail' | 'gallery') => {
+  const handleImageUpload = async (files: FileList | null, type: 'thumbnail' | 'gallery') => {
     if (!files) return;
     
-    Array.from(files).forEach((file) => {
-      if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const imageUrl = e.target?.result as string;
-          if (type === 'thumbnail') {
-            setProjectData(prev => ({ ...prev, thumbnail: imageUrl }));
-          } else {
-            if (projectData.images.length < 10) {
-              setProjectData(prev => ({
-                ...prev,
-                images: [...prev.images, imageUrl]
-              }));
-            }
-          }
-        };
-        reader.readAsDataURL(file);
+    setIsUploading(true);
+    try {
+      const uploadPromises = Array.from(files)
+        .filter(file => file.type.startsWith('image/'))
+        .map(file => uploadToImageBB(file));
+
+      const imageUrls = await Promise.all(uploadPromises);
+      
+      if (type === 'thumbnail' && imageUrls.length > 0) {
+        setProjectData(prev => ({ ...prev, thumbnail: imageUrls[0] }));
+      } else if (type === 'gallery') {
+        setProjectData(prev => ({
+          ...prev,
+          images: [...prev.images, ...imageUrls].slice(0, 10) // Limit to 10 images
+        }));
       }
-    });
+    } catch (error) {
+      console.error('Error uploading images:', error);
+      setErrors(prev => ({
+        ...prev,
+        upload: error instanceof Error ? error.message : 'Failed to upload images'
+      }));
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const removeImage = (index: number) => {
@@ -191,20 +274,58 @@ const AddProject: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (!validateForm()) return;
+    if (!validateForm() || !currentUser?.uid) return;
 
     setIsLoading(true);
     try {
-      // Simulate API call
-      console.log('Saving project:', projectData);
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const projectDataToSave = {
+        ...projectData,
+        userId: currentUser.uid,
+        updatedAt: serverTimestamp()
+      };
+
+      if (isEditing && id) {
+        // Update existing project
+        await updateDoc(doc(db, 'portfolio_projects', id), projectDataToSave);
+        console.log('Project updated successfully');
+      } else {
+        // Create new project
+        projectDataToSave.createdAt = serverTimestamp();
+        const docRef = await addDoc(collection(db, 'portfolio_projects'), projectDataToSave);
+        console.log('Project created successfully with ID:', docRef.id);
+      }
+      
       navigate('/freelancer/portfolio');
     } catch (error) {
       console.error('Error saving project:', error);
+      setErrors(prev => ({
+        ...prev,
+        save: 'Failed to save project. Please try again.'
+      }));
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Redirect if user is not authenticated
+  if (!currentUser) {
+    navigate('/login');
+    return null;
+  };
+
+  // Show loading state when fetching project data
+  if (isLoading && isEditing) {
+    return (
+      <div className="min-h-screen bg-[#ffeee3]/30 pt-20">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B00]"></div>
+            <span className="ml-3 text-gray-600">Loading project...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#ffeee3]/30 pt-20">
@@ -236,7 +357,7 @@ const AddProject: React.FC = () => {
             </button>
             <button
               onClick={handleSave}
-              disabled={isLoading}
+              disabled={isLoading || isUploading}
               className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center disabled:opacity-50"
             >
               {isLoading ? (
@@ -253,6 +374,16 @@ const AddProject: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Error Display */}
+        {(errors.save || errors.upload) && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className="text-red-700">
+              {errors.save && <p>{errors.save}</p>}
+              {errors.upload && <p>{errors.upload}</p>}
+            </div>
+          </div>
+        )}
 
         {/* Form */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
@@ -463,14 +594,24 @@ const AddProject: React.FC = () => {
                       </button>
                     </div>
                   ) : (
-                    <label className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-[#FF6B00] transition-colors block">
-                      <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                      <span className="text-gray-600">Click to upload thumbnail</span>
+                    <label className={`border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-[#FF6B00] transition-colors block ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                      {isUploading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF6B00] mx-auto mb-2"></div>
+                          <span className="text-gray-600">Uploading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                          <span className="text-gray-600">Click to upload thumbnail</span>
+                        </>
+                      )}
                       <input
                         type="file"
                         accept="image/*"
                         onChange={(e) => handleImageUpload(e.target.files, 'thumbnail')}
                         className="hidden"
+                        disabled={isUploading}
                       />
                     </label>
                   )}
@@ -499,15 +640,25 @@ const AddProject: React.FC = () => {
                       </div>
                     ))}
                     {projectData.images.length < 10 && (
-                      <label className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-[#FF6B00] transition-colors">
-                        <Plus className="w-6 h-6 text-gray-400 mx-auto mb-1" />
-                        <span className="text-xs text-gray-600">Add Image</span>
+                      <label className={`border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-[#FF6B00] transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                        {isUploading ? (
+                          <>
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#FF6B00] mx-auto mb-1"></div>
+                            <span className="text-xs text-gray-600">Uploading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-6 h-6 text-gray-400 mx-auto mb-1" />
+                            <span className="text-xs text-gray-600">Add Image</span>
+                          </>
+                        )}
                         <input
                           type="file"
                           multiple
                           accept="image/*"
                           onChange={(e) => handleImageUpload(e.target.files, 'gallery')}
                           className="hidden"
+                          disabled={isUploading}
                         />
                       </label>
                     )}

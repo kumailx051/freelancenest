@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { collection, query, where, getDocs, orderBy, deleteDoc, doc } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import { useAuth } from '../../contexts/AuthContext';
 import { 
   Plus,
   Edit,
@@ -15,179 +18,93 @@ import {
   Heart
 } from 'lucide-react';
 
+interface PortfolioItem {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  tags: string[];
+  thumbnail: string;
+  images: string[];
+  liveUrl?: string;
+  githubUrl?: string;
+  client?: string;
+  completedDate: string;
+  duration: string;
+  budget?: string;
+  rating: number;
+  testimonial?: string;
+  technologies: string[];
+  features: string[];
+  userId: string;
+  createdAt: any;
+  status: 'published' | 'draft';
+  views?: number;
+  likes?: number;
+  featured?: boolean;
+}
+
 const Portfolio: React.FC = () => {
+  const { currentUser } = useAuth();
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('grid'); // grid, list
+  const [portfolioItems, setPortfolioItems] = useState<PortfolioItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
 
-  const portfolioItems = [
-    {
-      id: 1,
-      title: 'E-commerce Platform with React & Node.js',
-      description: 'A full-featured e-commerce platform with shopping cart, payment integration, and admin dashboard. Built with React, Node.js, MongoDB, and Stripe.',
-      category: 'Web Development',
-      tags: ['React', 'Node.js', 'MongoDB', 'Stripe', 'Redux'],
-      thumbnail: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&h=600&fit=crop&auto=format',
-      images: [
-        'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1600&h=1200&fit=crop&auto=format',
-        'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1600&h=1200&fit=crop&auto=format',
-        'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=1600&h=1200&fit=crop&auto=format'
-      ],
-      liveUrl: 'https://ecommerce-demo.com',
-      githubUrl: 'https://github.com/alexjohnson/ecommerce-platform',
-      client: 'TechCorp Solutions',
-      completedDate: '2024-01-15',
-      duration: '3 months',
-      budget: '$5,000',
-      rating: 5.0,
-      testimonial: 'Outstanding work! Alex delivered exactly what we needed and went above and beyond our expectations.',
-      technologies: ['React', 'Node.js', 'Express', 'MongoDB', 'Stripe API', 'JWT', 'Material-UI'],
-      features: [
-        'User authentication and authorization',
-        'Product catalog with search and filtering',
-        'Shopping cart and wishlist functionality',
-        'Secure payment processing with Stripe',
-        'Admin dashboard for inventory management',
-        'Order tracking and email notifications',
-        'Responsive design for all devices'
-      ],
-      views: 245,
-      likes: 18,
-      featured: true
-    },
-    {
-      id: 2,
-      title: 'SaaS Dashboard with Real-time Analytics',
-      description: 'Modern analytics dashboard with real-time data visualization, custom reports, and user management. Features interactive charts and responsive design.',
-      category: 'Dashboard',
-      tags: ['React', 'TypeScript', 'D3.js', 'WebSocket', 'Chart.js'],
-      thumbnail: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=600&fit=crop&auto=format',
-      images: [
-        'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1600&h=1200&fit=crop&auto=format',
-        'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1600&h=1200&fit=crop&auto=format'
-      ],
-      liveUrl: 'https://saas-dashboard-demo.com',
-      githubUrl: 'https://github.com/alexjohnson/saas-dashboard',
-      client: 'InnovateTech Inc',
-      completedDate: '2024-02-20',
-      duration: '2 months',
-      budget: '$3,500',
-      rating: 4.9,
-      testimonial: 'The dashboard exceeded our expectations. The real-time features work flawlessly.',
-      technologies: ['React', 'TypeScript', 'D3.js', 'WebSocket', 'Node.js', 'PostgreSQL'],
-      features: [
-        'Real-time data visualization',
-        'Interactive charts and graphs',
-        'Custom report generation',
-        'User role management',
-        'Export functionality (PDF, CSV)',
-        'Dark/light theme toggle',
-        'Mobile-responsive design'
-      ],
-      views: 189,
-      likes: 14,
-      featured: false
-    },
-    {
-      id: 3,
-      title: 'React Native Mobile App for Logistics',
-      description: 'Cross-platform mobile app for logistics management with GPS tracking, real-time notifications, and offline capabilities.',
-      category: 'Mobile Development',
-      tags: ['React Native', 'JavaScript', 'Firebase', 'GPS', 'Push Notifications'],
-      thumbnail: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=800&h=600&fit=crop&auto=format',
-      images: [
-        'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=1600&h=1200&fit=crop&auto=format',
-        'https://images.unsplash.com/photo-1555774698-0b77e0d5fac6?w=1600&h=1200&fit=crop&auto=format',
-        'https://images.unsplash.com/photo-1563203369-26f2e4a5ccf7?w=1600&h=1200&fit=crop&auto=format'
-      ],
-      liveUrl: null,
-      githubUrl: null,
-      client: 'MobileFirst Co',
-      completedDate: '2024-03-10',
-      duration: '4 months',
-      budget: '$4,200',
-      rating: 4.8,
-      testimonial: 'Perfect execution of our mobile app requirements. Great communication throughout.',
-      technologies: ['React Native', 'Firebase', 'Google Maps API', 'Redux', 'AsyncStorage'],
-      features: [
-        'GPS tracking and route optimization',
-        'Real-time push notifications',
-        'Offline data synchronization',
-        'Barcode scanning functionality',
-        'Driver performance analytics',
-        'Customer delivery notifications',
-        'Cross-platform compatibility (iOS/Android)'
-      ],
-      views: 156,
-      likes: 11,
-      featured: true
-    },
-    {
-      id: 4,
-      title: 'Data Visualization Dashboard',
-      description: 'Interactive data visualization platform with complex charts, filters, and export capabilities. Built for financial data analysis.',
-      category: 'Data Visualization',
-      tags: ['React', 'D3.js', 'Python', 'FastAPI', 'PostgreSQL'],
-      thumbnail: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=600&fit=crop&auto=format',
-      images: [
-        'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1600&h=1200&fit=crop&auto=format'
-      ],
-      liveUrl: 'https://dataviz-demo.com',
-      githubUrl: 'https://github.com/alexjohnson/data-viz',
-      client: 'DataViz Solutions',
-      completedDate: '2023-12-05',
-      duration: '6 weeks',
-      budget: '$2,800',
-      rating: 5.0,
-      testimonial: 'Incredible attention to detail and perfect implementation of our design requirements.',
-      technologies: ['React', 'D3.js', 'Python', 'FastAPI', 'PostgreSQL', 'Redis'],
-      features: [
-        'Complex data visualization with D3.js',
-        'Interactive filtering and drill-down',
-        'Real-time data updates',
-        'Custom chart types',
-        'Export to multiple formats',
-        'Performance optimization for large datasets',
-        'Responsive and accessible design'
-      ],
-      views: 98,
-      likes: 8,
-      featured: false
-    },
-    {
-      id: 5,
-      title: 'AI-Powered Content Management System',
-      description: 'Modern CMS with AI-powered content suggestions, automated SEO optimization, and intuitive content editing experience.',
-      category: 'CMS',
-      tags: ['Next.js', 'AI', 'SEO', 'Headless CMS', 'TypeScript'],
-      thumbnail: 'https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=800&h=600&fit=crop&auto=format',
-      images: [
-        'https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=1600&h=1200&fit=crop&auto=format',
-        'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1600&h=1200&fit=crop&auto=format'
-      ],
-      liveUrl: 'https://ai-cms-demo.com',
-      githubUrl: null,
-      client: 'ContentTech Ltd',
-      completedDate: '2024-01-30',
-      duration: '2.5 months',
-      budget: '$4,800',
-      rating: 4.9,
-      testimonial: 'Revolutionary CMS solution. The AI features are game-changing for our content team.',
-      technologies: ['Next.js', 'TypeScript', 'OpenAI API', 'Prisma', 'PostgreSQL', 'Tailwind CSS'],
-      features: [
-        'AI-powered content suggestions',
-        'Automated SEO optimization',
-        'Rich text editor with AI assistance',
-        'Multi-language support',
-        'Advanced user permissions',
-        'Content scheduling and workflows',
-        'Analytics and performance tracking'
-      ],
-      views: 67,
-      likes: 5,
-      featured: false
+  // Fetch portfolio projects from Firebase
+  useEffect(() => {
+    const fetchProjects = async () => {
+      if (!currentUser?.uid) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const q = query(
+          collection(db, 'portfolio_projects'),
+          where('userId', '==', currentUser.uid),
+          orderBy('createdAt', 'desc')
+        );
+        
+        const querySnapshot = await getDocs(q);
+        const projects: PortfolioItem[] = [];
+        
+        querySnapshot.forEach((doc) => {
+          projects.push({
+            id: doc.id,
+            ...doc.data()
+          } as PortfolioItem);
+        });
+        
+        setPortfolioItems(projects);
+      } catch (error) {
+        console.error('Error fetching portfolio projects:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProjects();
+  }, [currentUser]);
+
+  const handleDeleteProject = async (projectId: string) => {
+    if (!confirm('Are you sure you want to delete this project?')) return;
+
+    setDeleteLoading(projectId);
+    try {
+      await deleteDoc(doc(db, 'portfolio_projects', projectId));
+      setPortfolioItems(prev => prev.filter(item => item.id !== projectId));
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      alert('Failed to delete project. Please try again.');
+    } finally {
+      setDeleteLoading(null);
     }
-  ];
+  };
+
+  // Portfolio data is fetched from Firebase
 
   const categories = ['all', 'Web Development', 'Mobile Development', 'Dashboard', 'Data Visualization', 'CMS'];
 
@@ -201,11 +118,24 @@ const Portfolio: React.FC = () => {
 
   const stats = {
     totalProjects: portfolioItems.length,
-    totalViews: portfolioItems.reduce((acc, item) => acc + item.views, 0),
-    totalLikes: portfolioItems.reduce((acc, item) => acc + item.likes, 0),
-    avgRating: (portfolioItems.reduce((acc, item) => acc + item.rating, 0) / portfolioItems.length).toFixed(1),
+    totalViews: portfolioItems.reduce((acc, item) => acc + (item.views || 0), 0),
+    totalLikes: portfolioItems.reduce((acc, item) => acc + (item.likes || 0), 0),
+    avgRating: portfolioItems.length > 0 ? (portfolioItems.reduce((acc, item) => acc + item.rating, 0) / portfolioItems.length).toFixed(1) : '0.0',
     featuredProjects: portfolioItems.filter(item => item.featured).length
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#ffeee3]/30 pt-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B00]"></div>
+            <span className="ml-3 text-gray-600">Loading portfolio...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#ffeee3]/30 pt-20">
@@ -434,8 +364,16 @@ const Portfolio: React.FC = () => {
                       >
                         <Edit className="w-4 h-4" />
                       </Link>
-                      <button className="p-2 text-[#2E2E2E]/60 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                        <Trash2 className="w-4 h-4" />
+                      <button 
+                        onClick={() => handleDeleteProject(item.id)}
+                        disabled={deleteLoading === item.id}
+                        className="p-2 text-[#2E2E2E]/60 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {deleteLoading === item.id ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -498,8 +436,16 @@ const Portfolio: React.FC = () => {
                         >
                           <Edit className="w-4 h-4" />
                         </Link>
-                        <button className="p-2 text-[#2E2E2E]/60 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                          <Trash2 className="w-4 h-4" />
+                        <button 
+                          onClick={() => handleDeleteProject(item.id)}
+                          disabled={deleteLoading === item.id}
+                          className="p-2 text-[#2E2E2E]/60 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          {deleteLoading === item.id ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
                         </button>
                       </div>
                     </div>
