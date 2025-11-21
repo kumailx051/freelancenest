@@ -63,7 +63,7 @@ const Portfolio: React.FC = () => {
 
     try {
       const q = query(
-        collection(db, 'portfolio_projects'),
+        collection(db, 'portfolio_project'),
         where('userId', '==', currentUser.uid),
         orderBy('createdAt', 'desc')
       );
@@ -108,7 +108,7 @@ const Portfolio: React.FC = () => {
 
     setDeleteLoading(projectId);
     try {
-      await deleteDoc(doc(db, 'portfolio_projects', projectId));
+      await deleteDoc(doc(db, 'portfolio_project', projectId));
       setPortfolioItems(prev => prev.filter(item => item.id !== projectId));
     } catch (error) {
       console.error('Error deleting project:', error);

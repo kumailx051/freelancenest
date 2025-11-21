@@ -134,7 +134,7 @@ const AddProject: React.FC = () => {
 
       setIsLoading(true);
       try {
-        const projectDoc = await getDoc(doc(db, 'portfolio_projects', id));
+        const projectDoc = await getDoc(doc(db, 'portfolio_project', id));
         if (projectDoc.exists()) {
           const data = projectDoc.data();
           // Verify the project belongs to the current user
@@ -287,13 +287,13 @@ const AddProject: React.FC = () => {
 
       if (isEditing && id) {
         // Update existing project
-        await updateDoc(doc(db, 'portfolio_projects', id), projectDataToSave);
+        await updateDoc(doc(db, 'portfolio_project', id), projectDataToSave);
         console.log('Project updated successfully');
         setSuccessMessage('Project updated successfully!');
       } else {
         // Create new project
         projectDataToSave.createdAt = serverTimestamp();
-        const docRef = await addDoc(collection(db, 'portfolio_projects'), projectDataToSave);
+        const docRef = await addDoc(collection(db, 'portfolio_project'), projectDataToSave);
         console.log('Project created successfully with ID:', docRef.id);
         setSuccessMessage('Project added successfully!');
       }
