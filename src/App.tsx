@@ -32,7 +32,6 @@ import FirebaseTestPage from './pages/FirebaseTestPage'
 
 // Company Pages
 import AboutUsPage from './pages/company/AboutUsPage'
-import CareersPage from './pages/company/CareersPage'
 
 // Client Pages
 import ClientDashboard from './pages/client/ClientDashboard'
@@ -215,7 +214,6 @@ function App() {
               
               {/* Company Routes */}
               <Route path="/company/about" element={<AboutUsPage />} />
-              <Route path="/company/careers" element={<CareersPage />} />
             </Routes>
           </AppLayout>
         } />

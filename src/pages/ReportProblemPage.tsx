@@ -99,7 +99,7 @@ const ReportProblemPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#ffeee3]">
       {/* Hero Section */}
-      <section className="pt-40 pb-16 bg-gradient-to-r from-primary-500 to-purple-600">
+      <section className="pt-40 pb-16 bg-[#2E2E2E]/90">
         <div className="section-container">
           <div className="max-w-3xl mx-auto text-center">
             <div className="inline-block px-3 py-1 bg-white/10 text-white rounded-full text-sm font-semibold mb-3">
@@ -128,14 +128,14 @@ const ReportProblemPage: React.FC = () => {
               <p className="text-xl text-[#2E2E2E] mb-8">
                 Thank you for helping us maintain a safe environment. Our team will review your report and take appropriate action.
               </p>
-              <div className="bg-[#ffeee3] p-6 rounded-lg border border-[#ffeee3] mb-8">
-                <div className="text-left">
-                  <p className="text-[#ffeee3] mb-1">Reference Number:</p>
-                  <p className="text-[#2E2E2E] font-semibold mb-4">{`REP-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}-${new Date().getFullYear()}`}</p>
-                  <p className="text-[#ffeee3] mb-1">Submitted On:</p>
-                  <p className="text-[#2E2E2E] font-semibold">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                <div className="bg-[#ffeee3] p-6 rounded-lg border border-[#ffeee3] mb-8">
+                  <div className="text-left">
+                    <p className="text-[#2E2E2E] mb-1">Reference Number:</p>
+                    <p className="text-[#2E2E2E] font-semibold mb-4">{`REP-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}-${new Date().getFullYear()}`}</p>
+                    <p className="text-[#2E2E2E] mb-1">Submitted On:</p>
+                    <p className="text-[#2E2E2E] font-semibold">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                  </div>
                 </div>
-              </div>
               <div className="space-x-4">
                 <button 
                   onClick={() => setIsSubmitted(false)} 
@@ -144,7 +144,7 @@ const ReportProblemPage: React.FC = () => {
                   Submit Another Report
                 </button>
                 <button 
-                  className="px-6 py-3 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors"
+                  className="px-6 py-3 bg-[#FF6B00] text-white rounded-lg font-medium hover:bg-[#2E2E2E] transition-colors"
                   onClick={() => window.location.href = '/'}
                 >
                   Return to Homepage
@@ -174,7 +174,7 @@ const ReportProblemPage: React.FC = () => {
                         className="bg-[#ffeee3] rounded-xl border border-[#ffeee3] hover:border-[#FF6B00] p-6 cursor-pointer transition-all hover:shadow-md"
                         onClick={() => handleCategorySelect(category.id)}
                       >
-                        <div className="text-primary-600 mb-4">
+                        <div className="text-[#FF6B00] mb-4">
                           {category.icon}
                         </div>
                         <h3 className="text-lg font-semibold mb-2 text-[#2E2E2E]">{category.label}</h3>
@@ -189,7 +189,7 @@ const ReportProblemPage: React.FC = () => {
                   <div className="bg-[#ffeee3] p-6 rounded-xl mb-8">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center">
-                        <div className="text-primary-600 mr-3">
+                        <div className="text-[#FF6B00] mr-3">
                           {reportCategories.find(cat => cat.id === selectedCategory)?.icon}
                         </div>
                         <div>
@@ -204,7 +204,7 @@ const ReportProblemPage: React.FC = () => {
                       <button 
                         type="button"
                         onClick={() => setSelectedCategory(null)} 
-                        className="text-primary-600 hover:text-primary-800 text-sm font-medium"
+                        className="text-[#FF6B00] hover:text-[#2E2E2E] text-sm font-medium"
                       >
                         Change Category
                       </button>
@@ -221,7 +221,7 @@ const ReportProblemPage: React.FC = () => {
                           <input
                             type="text"
                             id="name"
-                            className="w-full px-4 py-2 border border-[#ffeee3] rounded-lg focus:ring-primary-500 focus:border-primary-500"
+                            className="w-full px-4 py-2 border border-[#ffeee3] rounded-lg focus:ring-[#FF6B00] focus:border-[#FF6B00]"
                             placeholder="Enter your name"
                             value={userName}
                             onChange={(e) => setUserName(e.target.value)}
@@ -233,7 +233,7 @@ const ReportProblemPage: React.FC = () => {
                           <input
                             type="email"
                             id="email"
-                            className="w-full px-4 py-2 border border-[#ffeee3] rounded-lg focus:ring-primary-500 focus:border-primary-500"
+                            className="w-full px-4 py-2 border border-[#ffeee3] rounded-lg focus:ring-[#FF6B00] focus:border-[#FF6B00]"
                             placeholder="your@email.com"
                             value={userEmail}
                             onChange={(e) => setUserEmail(e.target.value)}
@@ -252,7 +252,7 @@ const ReportProblemPage: React.FC = () => {
                           <input
                             type="text"
                             id="subject"
-                            className="w-full px-4 py-2 border border-[#ffeee3] rounded-lg focus:ring-primary-500 focus:border-primary-500"
+                            className="w-full px-4 py-2 border border-[#ffeee3] rounded-lg focus:ring-[#FF6B00] focus:border-[#FF6B00]"
                             placeholder="Brief description of the issue"
                             value={reportSubject}
                             onChange={(e) => setReportSubject(e.target.value)}
@@ -266,7 +266,7 @@ const ReportProblemPage: React.FC = () => {
                           <input
                             type="url"
                             id="url"
-                            className="w-full px-4 py-2 border border-[#ffeee3] rounded-lg focus:ring-primary-500 focus:border-primary-500"
+                            className="w-full px-4 py-2 border border-[#ffeee3] rounded-lg focus:ring-[#FF6B00] focus:border-[#FF6B00]"
                             placeholder="https://..."
                             value={urlLink}
                             onChange={(e) => setUrlLink(e.target.value)}
@@ -277,7 +277,7 @@ const ReportProblemPage: React.FC = () => {
                           <textarea
                             id="description"
                             rows={6}
-                            className="w-full px-4 py-2 border border-[#ffeee3] rounded-lg focus:ring-primary-500 focus:border-primary-500"
+                            className="w-full px-4 py-2 border border-[#ffeee3] rounded-lg focus:ring-[#FF6B00] focus:border-[#FF6B00]"
                             placeholder="Please provide as much detail as possible about the issue you're reporting..."
                             value={reportDescription}
                             onChange={(e) => setReportDescription(e.target.value)}
@@ -311,7 +311,7 @@ const ReportProblemPage: React.FC = () => {
                               <button 
                                 type="button"
                                 onClick={handleAttachment}
-                                className="text-primary-600 hover:text-primary-800 text-sm font-medium"
+                                className="text-[#FF6B00] hover:text-[#2E2E2E] text-sm font-medium"
                               >
                                 + Add More Attachments (maximum 5)
                               </button>
@@ -319,15 +319,15 @@ const ReportProblemPage: React.FC = () => {
                           </div>
                         ) : (
                           <div>
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-[#ffeee3] mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-[#2E2E2E] mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                             </svg>
                             <p className="text-[#2E2E2E] mb-2">Drag & drop files here, or click to select files</p>
-                            <p className="text-[#ffeee3] text-sm">Supports: JPG, PNG, PDF (Max 5 files, 10MB each)</p>
+                            <p className="text-[#2E2E2E] text-sm">Supports: JPG, PNG, PDF (Max 5 files, 10MB each)</p>
                             <button 
                               type="button"
                               onClick={handleAttachment}
-                              className="mt-4 px-4 py-2 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100 transition-colors"
+                              className="mt-4 px-4 py-2 bg-[#ffeee3] text-[#FF6B00] rounded-lg text-sm font-medium hover:bg-[#FF6B00] hover:text-white transition-colors"
                             >
                               Select Files
                             </button>
@@ -340,7 +340,7 @@ const ReportProblemPage: React.FC = () => {
                     <div className="border-t border-[#ffeee3] pt-6 flex flex-col sm:flex-row-reverse justify-between items-center">
                       <button 
                         type="submit" 
-                        className={`px-6 py-3 rounded-lg font-medium text-white w-full sm:w-auto mb-4 sm:mb-0 ${isSubmitting ? 'bg-[#ffeee3] cursor-not-allowed' : 'bg-[#FF6B00] hover:bg-[#FF9F45]'}`}
+                        className={`px-6 py-3 rounded-lg font-medium text-white w-full sm:w-auto mb-4 sm:mb-0 ${isSubmitting ? 'bg-[#ffeee3] cursor-not-allowed' : 'bg-[#FF6B00] hover:bg-[#2E2E2E]'}`}
                         disabled={isSubmitting}
                       >
                         {isSubmitting ? (
@@ -353,8 +353,8 @@ const ReportProblemPage: React.FC = () => {
                           </span>
                         ) : 'Submit Report'}
                       </button>
-                      <p className="text-sm text-[#ffeee3]">
-                        By submitting this report, you agree to our <a href="#" className="text-primary-600 hover:underline">Terms of Service</a> and <a href="#" className="text-primary-600 hover:underline">Privacy Policy</a>.
+                      <p className="text-sm text-[#2E2E2E]">
+                        By submitting this report, you agree to our <a href="#" className="text-[#FF6B00] hover:underline">Terms of Service</a> and <a href="#" className="text-[#FF6B00] hover:underline">Privacy Policy</a>.
                       </p>
                     </div>
                   </div>
@@ -378,16 +378,16 @@ const ReportProblemPage: React.FC = () => {
                   </p>
                   <div className="space-y-4">
                     <div className="flex items-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-primary-600 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[#FF6B00] mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                       </svg>
-                      <span className="text-[#2E2E2E]">+1-800-123-4567</span>
+                      <span className="text-[#2E2E2E]">03163028236</span>
                     </div>
                     <div className="flex items-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-primary-600 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[#FF6B00] mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
-                      <span className="text-[#2E2E2E]">emergency@freelanceplatform.com</span>
+                      <span className="text-[#2E2E2E]">freelancenestteam@gmail.com</span>
                     </div>
                   </div>
                 </div>
@@ -395,25 +395,25 @@ const ReportProblemPage: React.FC = () => {
                   <h3 className="text-xl font-bold mb-4 text-[#2E2E2E]">What Happens Next</h3>
                   <ol className="space-y-4">
                     <li className="flex">
-                      <div className="bg-primary-100 text-primary-600 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-0.5 mr-3">
+                      <div className="bg-[#ffeee3] text-[#FF6B00] rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-0.5 mr-3">
                         1
                       </div>
                       <p className="text-[#2E2E2E]">Our team will review your report within 24-48 hours.</p>
                     </li>
                     <li className="flex">
-                      <div className="bg-primary-100 text-primary-600 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-0.5 mr-3">
+                      <div className="bg-[#ffeee3] text-[#FF6B00] rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-0.5 mr-3">
                         2
                       </div>
                       <p className="text-[#2E2E2E]">You'll receive a confirmation email with your report reference number.</p>
                     </li>
                     <li className="flex">
-                      <div className="bg-primary-100 text-primary-600 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-0.5 mr-3">
+                      <div className="bg-[#ffeee3] text-[#FF6B00] rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-0.5 mr-3">
                         3
                       </div>
                       <p className="text-[#2E2E2E]">We may contact you for additional information if needed.</p>
                     </li>
                     <li className="flex">
-                      <div className="bg-primary-100 text-primary-600 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-0.5 mr-3">
+                      <div className="bg-[#ffeee3] text-[#FF6B00] rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-0.5 mr-3">
                         4
                       </div>
                       <p className="text-[#2E2E2E]">You'll be notified of any actions taken as a result of your report.</p>

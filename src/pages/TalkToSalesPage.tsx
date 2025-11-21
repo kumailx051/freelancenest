@@ -56,8 +56,11 @@ const TalkToSalesPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#ffeee3]">
       {/* Hero Section */}
-      <section className="pt-40 pb-16 bg-gradient-to-r from-primary-500 to-purple-600">
-        <div className="section-container">
+      <section className="pt-40 pb-16 relative">
+        <div className="absolute inset-0 z-0">
+          <div className="absolute inset-0 bg-[#2E2E2E]/90"></div>
+        </div>
+        <div className="section-container relative z-10">
           <div className="max-w-3xl mx-auto text-center">
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">Talk to Our Enterprise Sales Team</h1>
             <p className="text-xl text-[#ffeee3] mb-4">
@@ -222,7 +225,7 @@ const TalkToSalesPage: React.FC = () => {
                     {/* Submit Button */}
                     <button
                       type="submit"
-                      className="w-full bg-[#FF6B00] hover:bg-[#FF9F45] text-white font-medium py-3 rounded-lg transition-colors duration-200"
+                      className="w-full bg-[#FF6B00] hover:bg-[#2E2E2E] text-white font-medium py-3 rounded-lg transition-colors duration-200"
                     >
                       Submit Request
                     </button>
@@ -230,7 +233,7 @@ const TalkToSalesPage: React.FC = () => {
                 </div>
 
                 {/* Right Side - Info */}
-                <div className="md:w-1/3 bg-[#FF6B00] text-white p-8 md:p-10">
+                <div className="md:w-1/3 bg-[#2E2E2E] text-white p-8 md:p-10">
                   <h3 className="text-xl font-bold mb-6">Why Talk to Sales?</h3>
                   
                   <div className="space-y-6">

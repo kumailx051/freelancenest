@@ -73,24 +73,11 @@ const AboutUsPage: React.FC = () => {
             <p className="text-xl mb-8 text-[#ffeee3]">
               We're building the future of work by empowering freelancers and businesses to connect, collaborate, and succeed together.
             </p>
-            <button className="bg-white text-[#FF6B00] border-2 border-[#FF6B00] px-6 py-3 rounded-lg font-semibold hover:bg-[#2E2E2E] hover:text-white transition-all">Join Our Journey</button>
           </div>
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="py-16 bg-white">
-        <div className="section-container">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {stats.map((stat, index) => (
-              <div key={index} className="text-center">
-                <div className="text-4xl md:text-5xl font-bold text-[#FF6B00] mb-2">{stat.value}</div>
-                <div className="text-[#2E2E2E]">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+
 
       {/* Story Section */}
       <section className="py-20 bg-gradient-to-br from-[#ffeee3] via-white to-[#ffeee3]">
@@ -212,48 +199,7 @@ const AboutUsPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Timeline Section */}
-      <section className="py-16">
-        <div className="section-container">
-          <div className="max-w-3xl mx-auto text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-6">Our Journey</h2>
-            <p className="text-xl text-[#2E2E2E]">
-              From startup to industry leader, the key milestones in our growth
-            </p>
-          </div>
 
-          <div className="relative">
-            {/* Timeline line - more prominent connection */}
-            <div className="hidden md:block absolute left-1/2 transform -translate-x-1/2 h-full w-0.5 bg-gradient-to-b from-[#FF6B00] via-[#FF9F45] to-[#FF6B00]"></div>
-
-            {/* Timeline events */}
-            <div className="space-y-12">
-              {timeline.map((event, index) => (
-                <div key={index} className="relative">
-                  <div className="md:grid md:grid-cols-2 md:gap-8 items-center">
-                    {/* Timeline dot - better connected */}
-                    <div className="hidden md:block absolute left-1/2 transform -translate-x-1/2 w-4 h-4 rounded-full bg-[#FF6B00] border-3 border-white shadow-lg z-10"></div>
-                    
-                    {/* Content positioning based on even/odd */}
-                    <div className={`mb-6 md:mb-0 ${index % 2 === 0 ? 'md:text-right md:pr-12' : 'md:col-start-2 md:pl-12'}`}>
-                      <div className="bg-white shadow-lg rounded-xl p-6 border border-[#FF6B00]/10 hover:shadow-xl transition-all duration-300">
-                        <div className="inline-block px-3 py-1 rounded-full bg-[#FF6B00] text-white font-semibold text-sm mb-3">
-                          {event.year}
-                        </div>
-                        <h3 className="text-xl font-bold mb-2 text-[#2E2E2E]">{event.title}</h3>
-                        <p className="text-[#2E2E2E]/80">{event.description}</p>
-                      </div>
-                    </div>
-                    
-                    {/* Empty div for layout on even/odd positioning */}
-                    {index % 2 === 0 ? <div></div> : <div className="hidden md:block"></div>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Why Choose Us Section */}
       <section className="py-16 bg-[#2E2E2E] text-white">
@@ -310,21 +256,7 @@ const AboutUsPage: React.FC = () => {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-16 bg-white">
-        <div className="section-container">
-          <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-3xl md:text-4xl font-bold mb-6">Join Our Growing Community</h2>
-            <p className="text-xl text-[#2E2E2E] mb-8">
-              Whether you're looking to hire top talent or build your freelance career, FreelanceNest provides the tools and support you need to succeed.
-            </p>
-            <div className="flex flex-wrap justify-center gap-4">
-              <button className="bg-[#2E2E2E] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#FF9F45] transition-all">Sign Up as Freelancer</button>
-              <button className="btn-outline-primary">Hire Talent</button>
-            </div>
-          </div>
-        </div>
-      </section>
+
     </div>
   );
 };

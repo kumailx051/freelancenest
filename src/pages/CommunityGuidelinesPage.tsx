@@ -1,4 +1,5 @@
 ﻿import React from 'react';
+import { Link } from 'react-router-dom';
 
 // Guidelines categories
 const guidelinesCategories = [
@@ -147,8 +148,11 @@ const CommunityGuidelinesPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#ffeee3]">
       {/* Hero Section */}
-      <section className="pt-40 pb-16 bg-gradient-to-r from-primary-500 to-purple-600">
-        <div className="section-container">
+      <section className="pt-40 pb-16 relative">
+        <div className="absolute inset-0 z-0">
+          <div className="absolute inset-0 bg-[#2E2E2E]/90"></div>
+        </div>
+        <div className="section-container relative z-10">
           <div className="max-w-3xl mx-auto text-center">
             <div className="inline-block px-3 py-1 bg-white/10 text-white rounded-full text-sm font-semibold mb-3">
               Platform Standards
@@ -192,13 +196,13 @@ const CommunityGuidelinesPage: React.FC = () => {
       </section>
 
       {/* Guidelines Categories Section */}
-      <section className="py-20 bg-gradient-to-b from-white to-gray-50">
+      <section className="py-20 bg-white">
         <div className="section-container">
           <div className="max-w-3xl mx-auto text-center mb-16">
             <div className="inline-block px-3 py-1 bg-[#ffeee3] text-[#FF6B00] rounded-full text-sm font-semibold mb-3">
               Platform Standards
             </div>
-            <h2 className="text-4xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-primary-400">Core Guidelines</h2>
+            <h2 className="text-4xl font-bold mb-6 text-[#2E2E2E]"><span className="bg-gradient-to-r from-[#FF6B00] to-[#FF6B00] bg-clip-text text-transparent">Core</span> Guidelines</h2>
             <p className="text-xl text-[#2E2E2E] max-w-2xl mx-auto">
               Five key categories of guidelines that ensure a positive platform experience for all users
             </p>
@@ -209,7 +213,7 @@ const CommunityGuidelinesPage: React.FC = () => {
               <div key={category.id} className="group hover:scale-[1.02] transition-all duration-300">
                 <div className="relative z-10 h-full flex flex-col bg-white rounded-2xl shadow-sm overflow-hidden border border-[#ffeee3] hover:shadow-md transition-all">
                   {/* Top Decorative Gradient Bar */}
-                  <div className="h-2 w-full bg-gradient-to-r from-primary-500 to-purple-500"></div>
+                  <div className="h-2 w-full bg-gradient-to-r from-[#FF6B00] to-[#2E2E2E]"></div>
                   
                   <div className="p-8 border-b border-[#ffeee3]">
                     <div className="flex items-center">
@@ -227,7 +231,7 @@ const CommunityGuidelinesPage: React.FC = () => {
                       {category.guidelines.map((guideline, index) => (
                         <div key={index} className="relative">
                           <div className="flex mb-2">
-                            <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-semibold text-sm mr-3 flex-shrink-0">
+                            <div className="h-8 w-8 rounded-full bg-[#ffeee3] flex items-center justify-center text-[#FF6B00] font-semibold text-sm mr-3 flex-shrink-0">
                               {index + 1}
                             </div>
                             <h4 className="font-semibold text-lg text-[#2E2E2E]">{guideline.title}</h4>
@@ -245,16 +249,7 @@ const CommunityGuidelinesPage: React.FC = () => {
               </div>
             ))}
           </div>
-          
-          {/* Bottom CTA */}
-          <div className="mt-16 text-center">
-            <a href="#" className="inline-flex items-center justify-center px-6 py-3 bg-[#FF6B00] hover:bg-[#FF9F45] rounded-lg text-white font-medium transition-colors duration-300">
-              <span className="mr-2">Download Guidelines PDF</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-            </a>
-          </div>
+
         </div>
       </section>
 
@@ -273,7 +268,7 @@ const CommunityGuidelinesPage: React.FC = () => {
               {violationConsequences.map((consequence, index) => (
                 <div key={index} className={`border-l-4 rounded-r-lg p-6 ${
                   index === 0 ? 'border-[#FF9F45] bg-[#ffeee3]' :
-                  index === 1 ? 'border-orange-400 bg-orange-50' :
+                  index === 1 ? 'border-[#FF6B00] bg-[#ffeee3]' :
                   index === 2 ? 'border-[#FF6B00] bg-[#ffeee3]' :
                   'border-[#FF6B00] bg-[#ffeee3]'
                 }`}>
@@ -311,9 +306,9 @@ const CommunityGuidelinesPage: React.FC = () => {
                   <p className="opacity-90 mb-6">
                     If you encounter behavior that violates these guidelines, please report it immediately.
                   </p>
-                  <button className="inline-block px-5 py-3 bg-white text-[#FF6B00] rounded-lg font-medium hover:bg-[#ffeee3] transition-colors">
+                  <Link to="/report-problem" className="inline-block px-5 py-3 bg-white text-[#FF6B00] rounded-lg font-medium hover:bg-[#ffeee3] transition-colors">
                     Report a Violation
-                  </button>
+                  </Link>
                 </div>
                 <div className="md:w-2/3 p-8">
                   <h4 className="text-xl font-bold mb-4 text-[#2E2E2E]">How to Report</h4>
@@ -359,7 +354,7 @@ const CommunityGuidelinesPage: React.FC = () => {
               These guidelines may be updated periodically. We'll notify you of any significant changes,
               but it's a good idea to review them regularly to stay informed.
             </p>
-            <p className="text-sm text-[#ffeee3]">Last updated: August 15, 2025</p>
+            <p className="text-sm text-[#FF6B00]">Last updated: August 15, 2025</p>
           </div>
         </div>
       </section>
