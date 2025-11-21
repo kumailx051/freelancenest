@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import { useAuth } from '../../contexts/AuthContext';
 import { 
   User,
   Mail,
@@ -22,9 +25,35 @@ import {
   DollarSign
 } from 'lucide-react';
 
+interface UserProfile {
+  firstName: string;
+  lastName: string;
+  email: string;
+  title: string;
+  location: string;
+  website: string;
+  bio: string;
+  avatar: string;
+  memberSince: string;
+}
+
 const Settings: React.FC = () => {
+  const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile>({
+    firstName: '',
+    lastName: '',
+    email: '',
+    title: '',
+    location: '',
+    website: '',
+    bio: '',
+    avatar: '',
+    memberSince: ''
+  });
   const [notifications, setNotifications] = useState({
     email: {
       newMessages: true,
@@ -61,6 +90,85 @@ const Settings: React.FC = () => {
     autoAcceptInvites: false,
     weeklyDigest: true
   });
+
+  // Fetch user data from Firebase
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!currentUser?.uid) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setUserProfile({
+            firstName: userData.firstName || '',
+            lastName: userData.lastName || '',
+            email: userData.email || currentUser.email || '',
+            title: userData.title || '',
+            location: userData.location || '',
+            website: userData.website || '',
+            bio: userData.bio || '',
+            avatar: userData.avatar || '',
+            memberSince: userData.createdAt ? new Date(userData.createdAt.toDate()).toLocaleDateString() : 'Recently'
+          });
+
+          // Update preferences if they exist
+          if (userData.preferences) {
+            setPreferences(prev => ({ ...prev, ...userData.preferences }));
+          }
+
+          // Update notifications if they exist
+          if (userData.notifications) {
+            setNotifications(prev => ({ ...prev, ...userData.notifications }));
+          }
+
+          // Update privacy settings if they exist
+          if (userData.privacy) {
+            setPrivacy(prev => ({ ...prev, ...userData.privacy }));
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, [currentUser]);
+
+  // Save user data to Firebase
+  const saveUserData = async () => {
+    if (!currentUser?.uid) return;
+
+    setIsSaving(true);
+    try {
+      await updateDoc(doc(db, 'users', currentUser.uid), {
+        firstName: userProfile.firstName,
+        lastName: userProfile.lastName,
+        title: userProfile.title,
+        location: userProfile.location,
+        website: userProfile.website,
+        bio: userProfile.bio,
+        avatar: userProfile.avatar,
+        preferences,
+        notifications,
+        privacy,
+        updatedAt: serverTimestamp()
+      });
+      
+      setIsEditing(false);
+      console.log('User data saved successfully');
+    } catch (error) {
+      console.error('Error saving user data:', error);
+      alert('Failed to save changes. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
@@ -138,6 +246,19 @@ const Settings: React.FC = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#ffeee3]/30 pt-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B00]"></div>
+            <span className="ml-3 text-gray-600">Loading settings...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#ffeee3]/30 pt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -196,7 +317,7 @@ const Settings: React.FC = () => {
                   <div className="flex items-center space-x-6">
                     <div className="relative">
                       <img
-                        src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop&crop=face&auto=format"
+                        src={userProfile.avatar || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop&crop=face&auto=format"}
                         alt="Profile"
                         className="w-24 h-24 rounded-full object-cover"
                       />
@@ -207,9 +328,9 @@ const Settings: React.FC = () => {
                       )}
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-[#2E2E2E]">Alex Johnson</h3>
-                      <p className="text-[#2E2E2E]/70">Senior Full Stack Developer</p>
-                      <p className="text-sm text-[#2E2E2E]/60">Member since January 2024</p>
+                      <h3 className="text-lg font-semibold text-[#2E2E2E]">{userProfile.firstName} {userProfile.lastName}</h3>
+                      <p className="text-[#2E2E2E]/70">{userProfile.title || 'Professional'}</p>
+                      <p className="text-sm text-[#2E2E2E]/60">Member since {userProfile.memberSince}</p>
                     </div>
                   </div>
 
@@ -219,7 +340,8 @@ const Settings: React.FC = () => {
                       <label className="block text-sm font-medium text-[#2E2E2E] mb-2">First Name</label>
                       <input
                         type="text"
-                        value="Alex"
+                        value={userProfile.firstName}
+                        onChange={(e) => setUserProfile(prev => ({ ...prev, firstName: e.target.value }))}
                         disabled={!isEditing}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
                       />
@@ -229,7 +351,8 @@ const Settings: React.FC = () => {
                       <label className="block text-sm font-medium text-[#2E2E2E] mb-2">Last Name</label>
                       <input
                         type="text"
-                        value="Johnson"
+                        value={userProfile.lastName}
+                        onChange={(e) => setUserProfile(prev => ({ ...prev, lastName: e.target.value }))}
                         disabled={!isEditing}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
                       />
@@ -239,7 +362,8 @@ const Settings: React.FC = () => {
                       <label className="block text-sm font-medium text-[#2E2E2E] mb-2">Professional Title</label>
                       <input
                         type="text"
-                        value="Senior Full Stack Developer"
+                        value={userProfile.title}
+                        onChange={(e) => setUserProfile(prev => ({ ...prev, title: e.target.value }))}
                         disabled={!isEditing}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
                       />
@@ -249,7 +373,8 @@ const Settings: React.FC = () => {
                       <label className="block text-sm font-medium text-[#2E2E2E] mb-2">Location</label>
                       <input
                         type="text"
-                        value="San Francisco, CA"
+                        value={userProfile.location}
+                        onChange={(e) => setUserProfile(prev => ({ ...prev, location: e.target.value }))}
                         disabled={!isEditing}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
                       />
@@ -259,7 +384,8 @@ const Settings: React.FC = () => {
                       <label className="block text-sm font-medium text-[#2E2E2E] mb-2">Website</label>
                       <input
                         type="url"
-                        value="https://alexjohnson.dev"
+                        value={userProfile.website}
+                        onChange={(e) => setUserProfile(prev => ({ ...prev, website: e.target.value }))}
                         disabled={!isEditing}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
                       />
@@ -268,7 +394,8 @@ const Settings: React.FC = () => {
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-[#2E2E2E] mb-2">Bio</label>
                       <textarea
-                        value="Passionate full-stack developer with 5+ years of experience building scalable web applications."
+                        value={userProfile.bio}
+                        onChange={(e) => setUserProfile(prev => ({ ...prev, bio: e.target.value }))}
                         disabled={!isEditing}
                         rows={4}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 resize-none"
@@ -280,17 +407,28 @@ const Settings: React.FC = () => {
                     <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
                       <button
                         onClick={() => setIsEditing(false)}
-                        className="border border-gray-300 text-[#2E2E2E] hover:bg-gray-50 px-6 py-2 rounded-lg font-medium transition-colors flex items-center"
+                        disabled={isSaving}
+                        className="border border-gray-300 text-[#2E2E2E] hover:bg-gray-50 px-6 py-2 rounded-lg font-medium transition-colors flex items-center disabled:opacity-50"
                       >
                         <X className="w-4 h-4 mr-2" />
                         Cancel
                       </button>
                       <button
-                        onClick={() => setIsEditing(false)}
-                        className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center"
+                        onClick={saveUserData}
+                        disabled={isSaving}
+                        className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center disabled:opacity-50"
                       >
-                        <Save className="w-4 h-4 mr-2" />
-                        Save Changes
+                        {isSaving ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-4 h-4 mr-2" />
+                            Save Changes
+                          </>
+                        )}
                       </button>
                     </div>
                   )}
@@ -309,7 +447,7 @@ const Settings: React.FC = () => {
                         <Mail className="w-5 h-5 text-[#FF6B00]" />
                         <div>
                           <p className="font-medium text-[#2E2E2E]">Email Address</p>
-                          <p className="text-sm text-[#2E2E2E]/60">alex.johnson@email.com</p>
+                          <p className="text-sm text-[#2E2E2E]/60">{userProfile.email}</p>
                         </div>
                       </div>
                       <button className="text-[#FF6B00] hover:text-[#FF9F45] font-medium">Change</button>
@@ -671,9 +809,22 @@ const Settings: React.FC = () => {
 
               {/* Save Button */}
               <div className="flex justify-end pt-6 border-t border-gray-200">
-                <button className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center">
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Changes
+                <button 
+                  onClick={saveUserData}
+                  disabled={isSaving}
+                  className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Save Changes
+                    </>
+                  )}
                 </button>
               </div>
             </div>
