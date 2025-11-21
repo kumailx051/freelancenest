@@ -27,7 +27,6 @@ import FreelancerPlusPage from './pages/FreelancerPlusPage'
 
 // Resource Pages
 import HelpCenterPage from './pages/resources/HelpCenterPage'
-import ResourcesPage from './pages/resources/ResourcesPage'
 import FirebaseTestPage from './pages/FirebaseTestPage'
 
 // Company Pages
@@ -210,7 +209,6 @@ function App() {
               
               {/* Resource Routes */}
               <Route path="/resources/help-center" element={<HelpCenterPage />} />
-              <Route path="/resources/library" element={<ResourcesPage />} />
               
               {/* Company Routes */}
               <Route path="/company/about" element={<AboutUsPage />} />

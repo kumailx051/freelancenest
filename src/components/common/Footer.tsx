@@ -17,9 +17,8 @@ const Footer: React.FC = () => {
       { label: 'Ways to Earn', href: '/ways-to-earn' },
       { label: 'Freelancer Plus', href: '/freelancer-plus' }
     ],
-    'Resources': [
-      { label: 'Help Center', href: '/resources/help-center' },
-      { label: 'Resource Library', href: '/resources/library' }
+    'Support': [
+      { label: 'Help Center', href: '/resources/help-center' }
     ],
     'Company': [
       { label: 'About Us', href: '/company/about' }
@@ -37,9 +36,9 @@ const Footer: React.FC = () => {
     <footer className="bg-[#2E2E2E] text-white">
       {/* Main Footer Content */}
       <div className="section-container py-16">
-        <div className="grid grid-cols-1 lg:grid-cols-6 gap-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8">
           {/* Company Info */}
-          <div className="lg:col-span-2">
+          <div className="col-span-2 lg:col-span-2">
             <div className="flex items-center mb-6">
               <span className="text-xl font-bold">
                 <span className="text-white">Freelance</span>
@@ -67,24 +66,73 @@ const Footer: React.FC = () => {
             </div>
           </div>
 
-          {/* Footer Links */}
-          {Object.entries(footerLinks).map(([category, links]) => (
-            <div key={category}>
-              <h3 className="font-semibold text-lg mb-4 text-[#FF6B00]">{category}</h3>
-              <ul className="space-y-3">
-                {links.map((link: any) => (
-                  <li key={link.label}>
-                    <Link
-                      to={link.href}
-                      className="text-[#ffeee3] hover:text-[#FF6B00] transition-colors duration-200"
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          {/* For Clients */}
+          <div>
+            <h3 className="font-semibold text-lg mb-4 text-[#FF6B00]">For Clients</h3>
+            <ul className="space-y-3">
+              {footerLinks['For Clients'].map((link: any) => (
+                <li key={link.label}>
+                  <Link
+                    to={link.href}
+                    className="text-[#ffeee3] hover:text-[#FF6B00] transition-colors duration-200"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* For Freelancers */}
+          <div>
+            <h3 className="font-semibold text-lg mb-4 text-[#FF6B00]">For Freelancers</h3>
+            <ul className="space-y-3">
+              {footerLinks['For Freelancers'].map((link: any) => (
+                <li key={link.label}>
+                  <Link
+                    to={link.href}
+                    className="text-[#ffeee3] hover:text-[#FF6B00] transition-colors duration-200"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Support - Centered between Freelancers and Company */}
+          <div>
+            <h3 className="font-semibold text-lg mb-4 text-[#FF6B00]">Support</h3>
+            <ul className="space-y-3">
+              {footerLinks['Support'].map((link: any) => (
+                <li key={link.label}>
+                  <Link
+                    to={link.href}
+                    className="text-[#ffeee3] hover:text-[#FF6B00] transition-colors duration-200"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Company */}
+          <div>
+            <h3 className="font-semibold text-lg mb-4 text-[#FF6B00]">Company</h3>
+            <ul className="space-y-3">
+              {footerLinks['Company'].map((link: any) => (
+                <li key={link.label}>
+                  <Link
+                    to={link.href}
+                    className="text-[#ffeee3] hover:text-[#FF6B00] transition-colors duration-200"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
 
         {/* Newsletter Signup */}
