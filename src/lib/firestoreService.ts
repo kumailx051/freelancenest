@@ -148,6 +148,159 @@ export class FirestoreService {
       throw error;
     }
   }
+
+  // User-specific methods
+  static async getUser(userId: string): Promise<DocumentData | null> {
+    try {
+      // First try to get by document ID (which should be the user ID)
+      const userDoc = await this.get('users', userId);
+      if (userDoc) {
+        return userDoc;
+      }
+      
+      // Fallback to querying by uid field for existing users
+      const userDocs = await this.getWhere('users', 'uid', '==', userId);
+      if (userDocs.length > 0) {
+        return userDocs[0];
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error getting user:', error);
+      throw error;
+    }
+  }
+
+  static async updateUser(userId: string, data: Partial<DocumentData>): Promise<void> {
+    try {
+      // Try to update using userId as document ID first
+      const userExists = await this.exists('users', userId);
+      if (userExists) {
+        await this.update('users', userId, data);
+        return;
+      }
+      
+      // Fallback to the old method for existing users with random document IDs
+      const userDocs = await this.getWhere('users', 'uid', '==', userId);
+      if (userDocs.length > 0) {
+        await this.update('users', userDocs[0].id, data);
+        return;
+      }
+      
+      throw new Error('User not found');
+    } catch (error) {
+      console.error('Error updating user:', error);
+      throw error;
+    }
+  }
+
+  // Client Jobs specific methods
+  static async createClientJob(jobData: any): Promise<string> {
+    try {
+      const docRef = await addDoc(collection(db, 'clientJobs'), {
+        ...jobData,
+        status: 'draft', // Start as draft
+        applicants: [],
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      return docRef.id;
+    } catch (error) {
+      console.error('Error creating client job:', error);
+      throw error;
+    }
+  }
+
+  static async updateClientJob(jobId: string, jobData: Partial<any>): Promise<void> {
+    try {
+      const docRef = doc(db, 'clientJobs', jobId);
+      await updateDoc(docRef, {
+        ...jobData,
+        updatedAt: new Date()
+      });
+    } catch (error) {
+      console.error('Error updating client job:', error);
+      throw error;
+    }
+  }
+
+  static async getClientJob(jobId: string): Promise<DocumentData | null> {
+    return this.get('clientJobs', jobId);
+  }
+
+  static async getClientJobs(clientId: string): Promise<DocumentData[]> {
+    try {
+      // First try with orderBy
+      return await this.getMany('clientJobs', [
+        where('clientId', '==', clientId),
+        orderBy('createdAt', 'desc')
+      ]);
+    } catch (error) {
+      console.warn('Failed to query with orderBy, trying without:', error);
+      // If orderBy fails (likely due to missing index), try without ordering
+      try {
+        const jobs = await this.getMany('clientJobs', [
+          where('clientId', '==', clientId)
+        ]);
+        // Sort manually by createdAt if the field exists
+        return jobs.sort((a, b) => {
+          const aDate = a.createdAt?.toDate?.() || new Date(0);
+          const bDate = b.createdAt?.toDate?.() || new Date(0);
+          return bDate.getTime() - aDate.getTime();
+        });
+      } catch (innerError) {
+        console.error('Failed to query clientJobs:', innerError);
+        throw innerError;
+      }
+    }
+  }
+
+  static async publishClientJob(jobId: string): Promise<void> {
+    try {
+      const docRef = doc(db, 'clientJobs', jobId);
+      await updateDoc(docRef, {
+        status: 'active',
+        publishedAt: new Date(),
+        updatedAt: new Date()
+      });
+    } catch (error) {
+      console.error('Error publishing client job:', error);
+      throw error;
+    }
+  }
+
+  // Client Settings operations
+  static async getClientSettings(clientId: string) {
+    try {
+      const settings = await this.get('clientSettings', clientId);
+      return settings;
+    } catch (error) {
+      console.error('Error getting client settings:', error);
+      return null;
+    }
+  }
+
+  static async saveClientSettings(clientId: string, settings: any) {
+    try {
+      const settingsData = {
+        ...settings,
+        clientId,
+        updatedAt: new Date()
+      };
+      
+      // Check if settings document exists
+      const exists = await this.exists('clientSettings', clientId);
+      
+      if (exists) {
+        await this.update('clientSettings', clientId, settingsData);
+      } else {
+        await this.createWithId('clientSettings', clientId, settingsData);
+      }
+    } catch (error) {
+      console.error('Error saving client settings:', error);
+      throw error;
+    }
+  }
 }
 
 // Example usage functions for your freelance platform

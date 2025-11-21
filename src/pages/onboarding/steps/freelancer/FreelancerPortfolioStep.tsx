@@ -162,7 +162,7 @@ const FreelancerPortfolioStep: React.FC<FreelancerPortfolioStepProps> = ({
         const formData = new FormData();
         formData.append('image', file);
 
-        const response = await fetch(`https://api.imgbb.com/1/upload?key=46b63b5b6c2f3f7a0b7c4f8a4d2e1c9f`, {
+        const response = await fetch(`https://api.imgbb.com/1/upload?key=af89815a37ad8b0ac30f6e34839d6735`, {
           method: 'POST',
           body: formData,
         });

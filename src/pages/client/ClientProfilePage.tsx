@@ -1,43 +1,50 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { FirestoreService } from '../../lib/firestoreService';
+import { uploadImage } from '../../lib/imageUpload';
 
 const ClientProfilePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const { currentUser } = useAuth();
 
-  const profile = {
+  const [profile, setProfile] = useState<any>({
     personalInfo: {
-      firstName: 'Sarah',
-      lastName: 'Williams',
-      email: 'sarah.williams@example.com',
-      phone: '+1 (555) 123-4567',
-      location: 'San Francisco, CA, USA',
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      location: '',
       timezone: 'Pacific Standard Time (PST)',
-      avatar: '/api/placeholder/120/120',
-      title: 'Product Manager',
-      company: 'TechStart Inc.',
-      website: 'https://techstart.com'
+      avatar: '',
+      title: '',
+      company: '',
+      website: ''
     },
     businessInfo: {
-      companyName: 'TechStart Inc.',
-      industry: 'Technology',
+      companyName: '',
+      industry: '',
       companySize: '50-100 employees',
-      taxId: '12-3456789',
+      taxId: '',
       address: {
-        street: '123 Innovation Drive',
-        city: 'San Francisco',
-        state: 'CA',
-        zipCode: '94105',
+        street: '',
+        city: '',
+        state: '',
+        zipCode: '',
         country: 'United States'
       }
     },
     stats: {
-      projectsCompleted: 23,
-      totalSpent: 89750,
-      avgProjectValue: 3900,
+      projectsCompleted: 0,
+      totalSpent: 0,
+      avgProjectValue: 0,
       successRate: 96,
       onTimeCompletion: 94,
-      freelancersWorkedWith: 18
+      freelancersWorkedWith: 0
     },
     preferences: {
       communicationStyle: 'Professional',
@@ -45,6 +52,190 @@ const ClientProfilePage: React.FC = () => {
       budget: '$1,000 - $5,000',
       timeline: 'Flexible',
       workingHours: '9 AM - 6 PM PST'
+    }
+  });
+
+  // Fetch profile data from Firebase
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!currentUser) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const userData = await FirestoreService.getUser(currentUser.uid);
+        
+        if (userData) {
+          // Map Firebase data to profile structure
+          setProfile({
+            personalInfo: {
+              firstName: userData.firstName || '',
+              lastName: userData.lastName || '',
+              email: userData.email || currentUser.email || '',
+              phone: userData.phone || userData.profile?.phone || '',
+              location: userData.location || userData.profile?.location || '',
+              timezone: userData.timezone || 'Pacific Standard Time (PST)',
+              avatar: userData.profile?.profilePictureUrl || userData.profilePictureUrl || '',
+              title: userData.jobTitle || userData.profile?.jobTitle || '',
+              company: userData.company?.name || userData.companyName || '',
+              website: userData.company?.website || userData.website || ''
+            },
+            businessInfo: {
+              companyName: userData.company?.name || userData.companyName || '',
+              industry: userData.company?.industry || userData.industry || '',
+              companySize: userData.company?.size || userData.companySize || '50-100 employees',
+              taxId: userData.company?.taxId || userData.taxId || '',
+              address: {
+                street: userData.company?.address?.street || '',
+                city: userData.company?.address?.city || '',
+                state: userData.company?.address?.state || '',
+                zipCode: userData.company?.address?.zipCode || '',
+                country: userData.company?.address?.country || 'United States'
+              }
+            },
+            stats: {
+              projectsCompleted: userData.stats?.projectsCompleted || 0,
+              totalSpent: userData.stats?.totalSpent || 0,
+              avgProjectValue: userData.stats?.avgProjectValue || 0,
+              successRate: userData.stats?.successRate || 96,
+              onTimeCompletion: userData.stats?.onTimeCompletion || 94,
+              freelancersWorkedWith: userData.stats?.freelancersWorkedWith || 0
+            },
+            preferences: {
+              communicationStyle: userData.preferences?.communicationStyle || 'Professional',
+              projectTypes: userData.preferences?.projectTypes || ['Web Development', 'Mobile Apps', 'UI/UX Design'],
+              budget: userData.preferences?.budget || '$1,000 - $5,000',
+              timeline: userData.preferences?.timeline || 'Flexible',
+              workingHours: userData.preferences?.workingHours || '9 AM - 6 PM PST'
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, [currentUser]);
+
+  // Handle profile image upload
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !currentUser) return;
+
+    try {
+      setUploadingImage(true);
+      const imageUrl = await uploadImage(file);
+      
+      // Update profile state
+      setProfile({
+        ...profile,
+        personalInfo: {
+          ...profile.personalInfo,
+          avatar: imageUrl
+        }
+      });
+
+      // Update Firebase immediately
+      await FirestoreService.updateUser(currentUser.uid, {
+        profile: {
+          profilePictureUrl: imageUrl
+        }
+      });
+
+      console.log('Profile picture updated successfully');
+    } catch (error) {
+      console.error('Error uploading profile picture:', error);
+      alert('Failed to upload profile picture. Please try again.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  // Handle profile field changes
+  const handleFieldChange = (section: string, field: string, value: any) => {
+    if (section === 'personalInfo' || section === 'businessInfo' || section === 'preferences') {
+      setProfile({
+        ...profile,
+        [section]: {
+          ...profile[section],
+          [field]: value
+        }
+      });
+    } else if (section === 'address') {
+      setProfile({
+        ...profile,
+        businessInfo: {
+          ...profile.businessInfo,
+          address: {
+            ...profile.businessInfo.address,
+            [field]: value
+          }
+        }
+      });
+    }
+  };
+
+  // Handle save profile
+  const handleSaveProfile = async () => {
+    if (!currentUser) return;
+
+    try {
+      setSaving(true);
+
+      // Prepare data to save to Firebase
+      const updateData: any = {
+        firstName: profile.personalInfo.firstName,
+        lastName: profile.personalInfo.lastName,
+        email: profile.personalInfo.email,
+        phone: profile.personalInfo.phone,
+        location: profile.personalInfo.location,
+        timezone: profile.personalInfo.timezone,
+        jobTitle: profile.personalInfo.title,
+        website: profile.personalInfo.website,
+        companyName: profile.businessInfo.companyName,
+        industry: profile.businessInfo.industry,
+        companySize: profile.businessInfo.companySize,
+        taxId: profile.businessInfo.taxId,
+        company: {
+          name: profile.businessInfo.companyName,
+          industry: profile.businessInfo.industry,
+          size: profile.businessInfo.companySize,
+          taxId: profile.businessInfo.taxId,
+          website: profile.personalInfo.website,
+          address: profile.businessInfo.address
+        },
+        profile: {
+          profilePictureUrl: profile.personalInfo.avatar,
+          phone: profile.personalInfo.phone,
+          location: profile.personalInfo.location,
+          jobTitle: profile.personalInfo.title
+        },
+        preferences: profile.preferences,
+        updatedAt: new Date()
+      };
+
+      await FirestoreService.updateUser(currentUser.uid, updateData);
+      
+      setIsEditing(false);
+      // Profile saved successfully (silent save, no popup)
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      // Optionally keep error alert or remove it too
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditToggle = () => {
+    if (isEditing) {
+      handleSaveProfile();
+    } else {
+      setIsEditing(true);
     }
   };
 
@@ -114,6 +305,17 @@ const ClientProfilePage: React.FC = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#ffeee3] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B00] mx-auto mb-4"></div>
+          <p className="text-[#2E2E2E]/60">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#ffeee3]">
       {/* Hero Section */}
@@ -124,16 +326,27 @@ const ClientProfilePage: React.FC = () => {
               <div className="flex items-center space-x-6 mb-6 lg:mb-0">
                 <div className="relative">
                   <img
-                    src={profile.personalInfo.avatar}
+                    src={profile.personalInfo.avatar || 'https://via.placeholder.com/120'}
                     alt={`${profile.personalInfo.firstName} ${profile.personalInfo.lastName}`}
                     className="w-24 h-24 rounded-full object-cover border-4 border-white/20"
                   />
-                  <button className="absolute bottom-0 right-0 bg-[#FF6B00] hover:bg-[#FF9F45] text-white p-2 rounded-full transition-colors">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  </button>
+                  <label className="absolute bottom-0 right-0 bg-[#FF6B00] hover:bg-[#FF9F45] text-white p-2 rounded-full transition-colors cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      disabled={uploadingImage}
+                    />
+                    {uploadingImage ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    )}
+                  </label>
                 </div>
                 <div>
                   <h1 className="text-3xl md:text-4xl font-bold mb-2">
@@ -146,10 +359,11 @@ const ClientProfilePage: React.FC = () => {
               </div>
               
               <button
-                onClick={() => setIsEditing(!isEditing)}
-                className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                onClick={handleEditToggle}
+                disabled={saving}
+                className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isEditing ? 'Save Changes' : 'Edit Profile'}
+                {saving ? 'Saving...' : isEditing ? 'Save Changes' : 'Edit Profile'}
               </button>
             </div>
 
@@ -236,7 +450,7 @@ const ClientProfilePage: React.FC = () => {
                   <div className="mt-6 pt-6 border-t border-[#ffeee3]">
                     <h3 className="font-semibold text-[#2E2E2E] mb-3">Preferred Project Types</h3>
                     <div className="flex flex-wrap gap-2">
-                      {profile.preferences.projectTypes.map((type, index) => (
+                      {profile.preferences.projectTypes.map((type: string, index: number) => (
                         <span key={index} className="px-3 py-1 bg-[#ffeee3] text-[#2E2E2E] rounded-full text-sm">
                           {type}
                         </span>
@@ -300,6 +514,7 @@ const ClientProfilePage: React.FC = () => {
                     <input
                       type="text"
                       value={profile.personalInfo.firstName}
+                      onChange={(e) => handleFieldChange('personalInfo', 'firstName', e.target.value)}
                       disabled={!isEditing}
                       className={`w-full px-4 py-3 border border-[#ffeee3] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent ${
                         !isEditing ? 'bg-gray-50' : ''
@@ -311,6 +526,7 @@ const ClientProfilePage: React.FC = () => {
                     <input
                       type="text"
                       value={profile.personalInfo.lastName}
+                      onChange={(e) => handleFieldChange('personalInfo', 'lastName', e.target.value)}
                       disabled={!isEditing}
                       className={`w-full px-4 py-3 border border-[#ffeee3] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent ${
                         !isEditing ? 'bg-gray-50' : ''
@@ -322,6 +538,7 @@ const ClientProfilePage: React.FC = () => {
                     <input
                       type="email"
                       value={profile.personalInfo.email}
+                      onChange={(e) => handleFieldChange('personalInfo', 'email', e.target.value)}
                       disabled={!isEditing}
                       className={`w-full px-4 py-3 border border-[#ffeee3] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent ${
                         !isEditing ? 'bg-gray-50' : ''
@@ -333,6 +550,7 @@ const ClientProfilePage: React.FC = () => {
                     <input
                       type="tel"
                       value={profile.personalInfo.phone}
+                      onChange={(e) => handleFieldChange('personalInfo', 'phone', e.target.value)}
                       disabled={!isEditing}
                       className={`w-full px-4 py-3 border border-[#ffeee3] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent ${
                         !isEditing ? 'bg-gray-50' : ''
@@ -344,6 +562,7 @@ const ClientProfilePage: React.FC = () => {
                     <input
                       type="text"
                       value={profile.personalInfo.title}
+                      onChange={(e) => handleFieldChange('personalInfo', 'title', e.target.value)}
                       disabled={!isEditing}
                       className={`w-full px-4 py-3 border border-[#ffeee3] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent ${
                         !isEditing ? 'bg-gray-50' : ''
@@ -355,6 +574,7 @@ const ClientProfilePage: React.FC = () => {
                     <input
                       type="url"
                       value={profile.personalInfo.website}
+                      onChange={(e) => handleFieldChange('personalInfo', 'website', e.target.value)}
                       disabled={!isEditing}
                       className={`w-full px-4 py-3 border border-[#ffeee3] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent ${
                         !isEditing ? 'bg-gray-50' : ''
@@ -366,6 +586,7 @@ const ClientProfilePage: React.FC = () => {
                     <input
                       type="text"
                       value={profile.personalInfo.location}
+                      onChange={(e) => handleFieldChange('personalInfo', 'location', e.target.value)}
                       disabled={!isEditing}
                       className={`w-full px-4 py-3 border border-[#ffeee3] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent ${
                         !isEditing ? 'bg-gray-50' : ''
@@ -386,6 +607,7 @@ const ClientProfilePage: React.FC = () => {
                     <input
                       type="text"
                       value={profile.businessInfo.companyName}
+                      onChange={(e) => handleFieldChange('businessInfo', 'companyName', e.target.value)}
                       disabled={!isEditing}
                       className={`w-full px-4 py-3 border border-[#ffeee3] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent ${
                         !isEditing ? 'bg-gray-50' : ''
@@ -397,6 +619,7 @@ const ClientProfilePage: React.FC = () => {
                     <input
                       type="text"
                       value={profile.businessInfo.industry}
+                      onChange={(e) => handleFieldChange('businessInfo', 'industry', e.target.value)}
                       disabled={!isEditing}
                       className={`w-full px-4 py-3 border border-[#ffeee3] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent ${
                         !isEditing ? 'bg-gray-50' : ''
@@ -407,6 +630,7 @@ const ClientProfilePage: React.FC = () => {
                     <label className="block text-sm font-medium text-[#2E2E2E] mb-2">Company Size</label>
                     <select
                       value={profile.businessInfo.companySize}
+                      onChange={(e) => handleFieldChange('businessInfo', 'companySize', e.target.value)}
                       disabled={!isEditing}
                       className={`w-full px-4 py-3 border border-[#ffeee3] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent ${
                         !isEditing ? 'bg-gray-50' : ''
@@ -424,6 +648,7 @@ const ClientProfilePage: React.FC = () => {
                     <input
                       type="text"
                       value={profile.businessInfo.taxId}
+                      onChange={(e) => handleFieldChange('businessInfo', 'taxId', e.target.value)}
                       disabled={!isEditing}
                       className={`w-full px-4 py-3 border border-[#ffeee3] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent ${
                         !isEditing ? 'bg-gray-50' : ''
@@ -438,6 +663,7 @@ const ClientProfilePage: React.FC = () => {
                         <input
                           type="text"
                           value={profile.businessInfo.address.street}
+                          onChange={(e) => handleFieldChange('address', 'street', e.target.value)}
                           disabled={!isEditing}
                           className={`w-full px-4 py-3 border border-[#ffeee3] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent ${
                             !isEditing ? 'bg-gray-50' : ''
@@ -449,6 +675,7 @@ const ClientProfilePage: React.FC = () => {
                         <input
                           type="text"
                           value={profile.businessInfo.address.city}
+                          onChange={(e) => handleFieldChange('address', 'city', e.target.value)}
                           disabled={!isEditing}
                           className={`w-full px-4 py-3 border border-[#ffeee3] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent ${
                             !isEditing ? 'bg-gray-50' : ''
@@ -460,6 +687,7 @@ const ClientProfilePage: React.FC = () => {
                         <input
                           type="text"
                           value={profile.businessInfo.address.state}
+                          onChange={(e) => handleFieldChange('address', 'state', e.target.value)}
                           disabled={!isEditing}
                           className={`w-full px-4 py-3 border border-[#ffeee3] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent ${
                             !isEditing ? 'bg-gray-50' : ''

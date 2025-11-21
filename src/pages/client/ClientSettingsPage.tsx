@@ -1,9 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { FirestoreService } from '../../lib/firestoreService';
 
 const ClientSettingsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('general');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const { currentUser } = useAuth();
 
   const [settings, setSettings] = useState({
     general: {
@@ -13,42 +19,83 @@ const ClientSettingsPage: React.FC = () => {
       dateFormat: 'MM/DD/YYYY',
       theme: 'light'
     },
-    notifications: {
-      emailNotifications: true,
-      smsNotifications: false,
-      pushNotifications: true,
-      projectUpdates: true,
-      milestoneReminders: true,
-      messageNotifications: true,
-      marketingEmails: false,
-      weeklyDigest: true,
-      freelancerApplications: true,
-      paymentConfirmations: true
-    },
     privacy: {
       profileVisibility: 'public',
       showEmail: false,
       showPhone: false,
-      showLocation: true,
-      allowDirectContact: true,
-      dataSharing: false,
-      analyticsOptOut: false
+      showLocation: true
     },
     security: {
-      twoFactorAuth: false,
       loginAlerts: true,
-      sessionTimeout: '30',
-      passwordChangeRequired: false,
-      apiAccess: false
+      sessionTimeout: '30'
     },
     billing: {
       autoPayEnabled: true,
       defaultPaymentMethod: 'Credit Card',
-      billingEmail: 'sarah.williams@example.com',
+      billingEmail: '',
       invoiceDelivery: 'email',
       taxExempt: false
     }
   });
+
+  // Fetch settings from Firebase
+  useEffect(() => {
+    const fetchSettings = async () => {
+      if (!currentUser) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const settingsData = await FirestoreService.getClientSettings(currentUser.uid);
+        
+        if (settingsData) {
+          setSettings({
+            general: {
+              language: settingsData.general?.language || 'English',
+              timezone: settingsData.general?.timezone || 'Pacific Standard Time (PST)',
+              currency: settingsData.general?.currency || 'USD',
+              dateFormat: settingsData.general?.dateFormat || 'MM/DD/YYYY',
+              theme: settingsData.general?.theme || 'light'
+            },
+            privacy: {
+              profileVisibility: settingsData.privacy?.profileVisibility || 'public',
+              showEmail: settingsData.privacy?.showEmail || false,
+              showPhone: settingsData.privacy?.showPhone || false,
+              showLocation: settingsData.privacy?.showLocation !== undefined ? settingsData.privacy.showLocation : true
+            },
+            security: {
+              loginAlerts: settingsData.security?.loginAlerts !== undefined ? settingsData.security.loginAlerts : true,
+              sessionTimeout: settingsData.security?.sessionTimeout || '30'
+            },
+            billing: {
+              autoPayEnabled: settingsData.billing?.autoPayEnabled !== undefined ? settingsData.billing.autoPayEnabled : true,
+              defaultPaymentMethod: settingsData.billing?.defaultPaymentMethod || 'Credit Card',
+              billingEmail: settingsData.billing?.billingEmail || currentUser.email || '',
+              invoiceDelivery: settingsData.billing?.invoiceDelivery || 'email',
+              taxExempt: settingsData.billing?.taxExempt || false
+            }
+          });
+        } else {
+          // Set default billing email if no settings exist
+          setSettings(prev => ({
+            ...prev,
+            billing: {
+              ...prev.billing,
+              billingEmail: currentUser.email || ''
+            }
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching settings:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSettings();
+  }, [currentUser]);
 
   const handleSettingChange = (category: string, setting: string, value: any) => {
     setSettings(prev => ({
@@ -59,6 +106,63 @@ const ClientSettingsPage: React.FC = () => {
       }
     }));
   };
+
+  const saveSettings = async () => {
+    if (!currentUser) return;
+
+    try {
+      setSaving(true);
+      await FirestoreService.saveClientSettings(currentUser.uid, settings);
+      console.log('Settings saved successfully');
+    } catch (error) {
+      console.error('Error saving settings:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeactivateAccount = async () => {
+    if (!currentUser) return;
+
+    try {
+      await FirestoreService.updateUser(currentUser.uid, {
+        deactivated: true,
+        deactivatedAt: new Date()
+      });
+      setShowDeactivateModal(false);
+      // Optionally sign out the user
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Error deactivating account:', error);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!currentUser) return;
+
+    try {
+      await FirestoreService.updateUser(currentUser.uid, {
+        deleted: true,
+        deletedAt: new Date()
+      });
+      setShowDeleteModal(false);
+      // Optionally sign out the user
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Error deleting account:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#ffeee3] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B00] mx-auto mb-4"></div>
+          <p className="text-[#2E2E2E]/60">Loading settings...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#ffeee3]">
@@ -82,7 +186,6 @@ const ClientSettingsPage: React.FC = () => {
             <div className="flex flex-wrap border-b border-[#ffeee3] mb-8">
               {[
                 { id: 'general', label: 'General', icon: '⚙️' },
-                { id: 'notifications', label: 'Notifications', icon: '🔔' },
                 { id: 'privacy', label: 'Privacy', icon: '🔒' },
                 { id: 'security', label: 'Security', icon: '🛡️' },
                 { id: 'billing', label: 'Billing', icon: '💳' }
@@ -180,151 +283,45 @@ const ClientSettingsPage: React.FC = () => {
                 </div>
 
                 <div className="mt-8 pt-6 border-t border-[#ffeee3]">
-                  <button className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-3 rounded-lg font-medium transition-colors">
-                    Save General Settings
+                  <button 
+                    onClick={saveSettings}
+                    disabled={saving}
+                    className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {saving ? 'Saving...' : 'Save General Settings'}
                   </button>
                 </div>
-              </div>
-            )}
 
-            {/* Notification Settings */}
-            {activeTab === 'notifications' && (
-              <div className="bg-white rounded-xl shadow-sm p-6 border border-[#ffeee3]">
-                <h2 className="text-xl font-bold text-[#2E2E2E] mb-6">Notification Preferences</h2>
-                
-                <div className="space-y-8">
-                  {/* Notification Methods */}
-                  <div>
-                    <h3 className="font-semibold text-[#2E2E2E] mb-4">Notification Methods</h3>
-                    <div className="space-y-4">
-                      <label className="flex items-center justify-between">
-                        <div>
-                          <span className="font-medium text-[#2E2E2E]">Email Notifications</span>
-                          <p className="text-sm text-[#2E2E2E]/60">Receive notifications via email</p>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={settings.notifications.emailNotifications}
-                          onChange={(e) => handleSettingChange('notifications', 'emailNotifications', e.target.checked)}
-                          className="h-5 w-5 text-[#FF6B00] border-[#ffeee3] rounded focus:ring-[#FF6B00]"
-                        />
-                      </label>
+                {/* Danger Zone - Only in General Tab */}
+                <div className="mt-8 p-6 border border-red-200 rounded-lg bg-red-50">
+                  <h3 className="text-lg font-bold text-red-600 mb-4">Danger Zone</h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-white border border-red-200 rounded-lg">
+                      <div>
+                        <span className="font-medium text-[#2E2E2E]">Deactivate Account</span>
+                        <p className="text-sm text-[#2E2E2E]/60">Temporarily disable your account (can be reactivated)</p>
+                      </div>
+                      <button 
+                        onClick={() => setShowDeactivateModal(true)}
+                        className="text-yellow-600 hover:text-yellow-700 font-medium"
+                      >
+                        Deactivate
+                      </button>
+                    </div>
 
-                      <label className="flex items-center justify-between">
-                        <div>
-                          <span className="font-medium text-[#2E2E2E]">SMS Notifications</span>
-                          <p className="text-sm text-[#2E2E2E]/60">Receive notifications via text message</p>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={settings.notifications.smsNotifications}
-                          onChange={(e) => handleSettingChange('notifications', 'smsNotifications', e.target.checked)}
-                          className="h-5 w-5 text-[#FF6B00] border-[#ffeee3] rounded focus:ring-[#FF6B00]"
-                        />
-                      </label>
-
-                      <label className="flex items-center justify-between">
-                        <div>
-                          <span className="font-medium text-[#2E2E2E]">Push Notifications</span>
-                          <p className="text-sm text-[#2E2E2E]/60">Receive browser push notifications</p>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={settings.notifications.pushNotifications}
-                          onChange={(e) => handleSettingChange('notifications', 'pushNotifications', e.target.checked)}
-                          className="h-5 w-5 text-[#FF6B00] border-[#ffeee3] rounded focus:ring-[#FF6B00]"
-                        />
-                      </label>
+                    <div className="flex items-center justify-between p-4 bg-white border border-red-200 rounded-lg">
+                      <div>
+                        <span className="font-medium text-[#2E2E2E]">Delete Account</span>
+                        <p className="text-sm text-[#2E2E2E]/60">Permanently delete your account and all data (cannot be undone)</p>
+                      </div>
+                      <button
+                        onClick={() => setShowDeleteModal(true)}
+                        className="text-red-600 hover:text-red-700 font-medium"
+                      >
+                        Delete Account
+                      </button>
                     </div>
                   </div>
-
-                  {/* Project Notifications */}
-                  <div>
-                    <h3 className="font-semibold text-[#2E2E2E] mb-4">Project Notifications</h3>
-                    <div className="space-y-4">
-                      <label className="flex items-center justify-between">
-                        <span className="font-medium text-[#2E2E2E]">Project Updates</span>
-                        <input
-                          type="checkbox"
-                          checked={settings.notifications.projectUpdates}
-                          onChange={(e) => handleSettingChange('notifications', 'projectUpdates', e.target.checked)}
-                          className="h-5 w-5 text-[#FF6B00] border-[#ffeee3] rounded focus:ring-[#FF6B00]"
-                        />
-                      </label>
-
-                      <label className="flex items-center justify-between">
-                        <span className="font-medium text-[#2E2E2E]">Milestone Reminders</span>
-                        <input
-                          type="checkbox"
-                          checked={settings.notifications.milestoneReminders}
-                          onChange={(e) => handleSettingChange('notifications', 'milestoneReminders', e.target.checked)}
-                          className="h-5 w-5 text-[#FF6B00] border-[#ffeee3] rounded focus:ring-[#FF6B00]"
-                        />
-                      </label>
-
-                      <label className="flex items-center justify-between">
-                        <span className="font-medium text-[#2E2E2E]">Freelancer Applications</span>
-                        <input
-                          type="checkbox"
-                          checked={settings.notifications.freelancerApplications}
-                          onChange={(e) => handleSettingChange('notifications', 'freelancerApplications', e.target.checked)}
-                          className="h-5 w-5 text-[#FF6B00] border-[#ffeee3] rounded focus:ring-[#FF6B00]"
-                        />
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Other Notifications */}
-                  <div>
-                    <h3 className="font-semibold text-[#2E2E2E] mb-4">Other Notifications</h3>
-                    <div className="space-y-4">
-                      <label className="flex items-center justify-between">
-                        <span className="font-medium text-[#2E2E2E]">Message Notifications</span>
-                        <input
-                          type="checkbox"
-                          checked={settings.notifications.messageNotifications}
-                          onChange={(e) => handleSettingChange('notifications', 'messageNotifications', e.target.checked)}
-                          className="h-5 w-5 text-[#FF6B00] border-[#ffeee3] rounded focus:ring-[#FF6B00]"
-                        />
-                      </label>
-
-                      <label className="flex items-center justify-between">
-                        <span className="font-medium text-[#2E2E2E]">Payment Confirmations</span>
-                        <input
-                          type="checkbox"
-                          checked={settings.notifications.paymentConfirmations}
-                          onChange={(e) => handleSettingChange('notifications', 'paymentConfirmations', e.target.checked)}
-                          className="h-5 w-5 text-[#FF6B00] border-[#ffeee3] rounded focus:ring-[#FF6B00]"
-                        />
-                      </label>
-
-                      <label className="flex items-center justify-between">
-                        <span className="font-medium text-[#2E2E2E]">Weekly Digest</span>
-                        <input
-                          type="checkbox"
-                          checked={settings.notifications.weeklyDigest}
-                          onChange={(e) => handleSettingChange('notifications', 'weeklyDigest', e.target.checked)}
-                          className="h-5 w-5 text-[#FF6B00] border-[#ffeee3] rounded focus:ring-[#FF6B00]"
-                        />
-                      </label>
-
-                      <label className="flex items-center justify-between">
-                        <span className="font-medium text-[#2E2E2E]">Marketing Emails</span>
-                        <input
-                          type="checkbox"
-                          checked={settings.notifications.marketingEmails}
-                          onChange={(e) => handleSettingChange('notifications', 'marketingEmails', e.target.checked)}
-                          className="h-5 w-5 text-[#FF6B00] border-[#ffeee3] rounded focus:ring-[#FF6B00]"
-                        />
-                      </label>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-8 pt-6 border-t border-[#ffeee3]">
-                  <button className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-3 rounded-lg font-medium transition-colors">
-                    Save Notification Settings
-                  </button>
                 </div>
               </div>
             )}
@@ -403,55 +400,15 @@ const ClientSettingsPage: React.FC = () => {
                       </label>
                     </div>
                   </div>
-
-                  <div>
-                    <h3 className="font-semibold text-[#2E2E2E] mb-4">Data & Analytics</h3>
-                    <div className="space-y-4">
-                      <label className="flex items-center justify-between">
-                        <div>
-                          <span className="font-medium text-[#2E2E2E]">Allow Direct Contact</span>
-                          <p className="text-sm text-[#2E2E2E]/60">Let freelancers contact you directly</p>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={settings.privacy.allowDirectContact}
-                          onChange={(e) => handleSettingChange('privacy', 'allowDirectContact', e.target.checked)}
-                          className="h-5 w-5 text-[#FF6B00] border-[#ffeee3] rounded focus:ring-[#FF6B00]"
-                        />
-                      </label>
-
-                      <label className="flex items-center justify-between">
-                        <div>
-                          <span className="font-medium text-[#2E2E2E]">Data Sharing</span>
-                          <p className="text-sm text-[#2E2E2E]/60">Share anonymized data for platform improvement</p>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={settings.privacy.dataSharing}
-                          onChange={(e) => handleSettingChange('privacy', 'dataSharing', e.target.checked)}
-                          className="h-5 w-5 text-[#FF6B00] border-[#ffeee3] rounded focus:ring-[#FF6B00]"
-                        />
-                      </label>
-
-                      <label className="flex items-center justify-between">
-                        <div>
-                          <span className="font-medium text-[#2E2E2E]">Opt-out of Analytics</span>
-                          <p className="text-sm text-[#2E2E2E]/60">Disable usage analytics tracking</p>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={settings.privacy.analyticsOptOut}
-                          onChange={(e) => handleSettingChange('privacy', 'analyticsOptOut', e.target.checked)}
-                          className="h-5 w-5 text-[#FF6B00] border-[#ffeee3] rounded focus:ring-[#FF6B00]"
-                        />
-                      </label>
-                    </div>
-                  </div>
                 </div>
 
                 <div className="mt-8 pt-6 border-t border-[#ffeee3]">
-                  <button className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-3 rounded-lg font-medium transition-colors">
-                    Save Privacy Settings
+                  <button 
+                    onClick={saveSettings}
+                    disabled={saving}
+                    className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {saving ? 'Saving...' : 'Save Privacy Settings'}
                   </button>
                 </div>
               </div>
@@ -464,28 +421,8 @@ const ClientSettingsPage: React.FC = () => {
                 
                 <div className="space-y-8">
                   <div>
-                    <h3 className="font-semibold text-[#2E2E2E] mb-4">Authentication</h3>
+                    <h3 className="font-semibold text-[#2E2E2E] mb-4">Password</h3>
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between p-4 border border-[#ffeee3] rounded-lg">
-                        <div>
-                          <span className="font-medium text-[#2E2E2E]">Two-Factor Authentication</span>
-                          <p className="text-sm text-[#2E2E2E]/60">Add an extra layer of security to your account</p>
-                        </div>
-                        <div className="flex items-center space-x-3">
-                          <input
-                            type="checkbox"
-                            checked={settings.security.twoFactorAuth}
-                            onChange={(e) => handleSettingChange('security', 'twoFactorAuth', e.target.checked)}
-                            className="h-5 w-5 text-[#FF6B00] border-[#ffeee3] rounded focus:ring-[#FF6B00]"
-                          />
-                          {!settings.security.twoFactorAuth && (
-                            <button className="text-[#FF6B00] hover:text-[#FF9F45] font-medium text-sm">
-                              Set Up
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
                       <div className="flex items-center justify-between p-4 border border-[#ffeee3] rounded-lg">
                         <div>
                           <span className="font-medium text-[#2E2E2E]">Password</span>
@@ -530,34 +467,15 @@ const ClientSettingsPage: React.FC = () => {
                       </div>
                     </div>
                   </div>
-
-                  <div>
-                    <h3 className="font-semibold text-[#2E2E2E] mb-4">API Access</h3>
-                    <div className="p-4 border border-[#ffeee3] rounded-lg">
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <span className="font-medium text-[#2E2E2E]">API Access</span>
-                          <p className="text-sm text-[#2E2E2E]/60">Enable API access for third-party integrations</p>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={settings.security.apiAccess}
-                          onChange={(e) => handleSettingChange('security', 'apiAccess', e.target.checked)}
-                          className="h-5 w-5 text-[#FF6B00] border-[#ffeee3] rounded focus:ring-[#FF6B00]"
-                        />
-                      </div>
-                      {settings.security.apiAccess && (
-                        <button className="text-[#FF6B00] hover:text-[#FF9F45] font-medium text-sm">
-                          Generate API Key
-                        </button>
-                      )}
-                    </div>
-                  </div>
                 </div>
 
                 <div className="mt-8 pt-6 border-t border-[#ffeee3]">
-                  <button className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-3 rounded-lg font-medium transition-colors">
-                    Save Security Settings
+                  <button 
+                    onClick={saveSettings}
+                    disabled={saving}
+                    className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {saving ? 'Saving...' : 'Save Security Settings'}
                   </button>
                 </div>
               </div>
@@ -664,54 +582,52 @@ const ClientSettingsPage: React.FC = () => {
                 </div>
 
                 <div className="mt-8 pt-6 border-t border-[#ffeee3]">
-                  <button className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-3 rounded-lg font-medium transition-colors">
-                    Save Billing Settings
+                  <button 
+                    onClick={saveSettings}
+                    disabled={saving}
+                    className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {saving ? 'Saving...' : 'Save Billing Settings'}
                   </button>
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      </section>
 
-            {/* Danger Zone */}
-            <div className="bg-white rounded-xl shadow-sm p-6 border border-red-200 mt-8">
-              <h2 className="text-xl font-bold text-red-600 mb-6">Danger Zone</h2>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 border border-red-200 rounded-lg">
-                  <div>
-                    <span className="font-medium text-[#2E2E2E]">Export Account Data</span>
-                    <p className="text-sm text-[#2E2E2E]/60">Download all your account data and project history</p>
-                  </div>
-                  <button className="text-blue-600 hover:text-blue-700 font-medium">
-                    Request Export
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between p-4 border border-red-200 rounded-lg">
-                  <div>
-                    <span className="font-medium text-[#2E2E2E]">Deactivate Account</span>
-                    <p className="text-sm text-[#2E2E2E]/60">Temporarily disable your account (can be reactivated)</p>
-                  </div>
-                  <button className="text-yellow-600 hover:text-yellow-700 font-medium">
-                    Deactivate
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between p-4 border border-red-200 rounded-lg">
-                  <div>
-                    <span className="font-medium text-[#2E2E2E]">Delete Account</span>
-                    <p className="text-sm text-[#2E2E2E]/60">Permanently delete your account and all data (cannot be undone)</p>
-                  </div>
-                  <button
-                    onClick={() => setShowDeleteModal(true)}
-                    className="text-red-600 hover:text-red-700 font-medium"
-                  >
-                    Delete Account
-                  </button>
-                </div>
+      {/* Deactivate Account Modal */}
+      {showDeactivateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.96-.833-2.73 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-[#2E2E2E] mb-2">Deactivate Account</h3>
+              <p className="text-[#2E2E2E]/60 mb-6">
+                Your account will be temporarily deactivated. You can reactivate it by logging in again.
+              </p>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowDeactivateModal(false)}
+                  className="flex-1 px-4 py-2 border border-[#ffeee3] text-[#2E2E2E] rounded-lg hover:bg-[#ffeee3] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleDeactivateAccount}
+                  className="flex-1 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors"
+                >
+                  Deactivate
+                </button>
               </div>
             </div>
           </div>
         </div>
-      </section>
+      )}
 
       {/* Delete Account Modal */}
       {showDeleteModal && (
@@ -725,7 +641,7 @@ const ClientSettingsPage: React.FC = () => {
               </div>
               <h3 className="text-lg font-bold text-[#2E2E2E] mb-2">Delete Account</h3>
               <p className="text-[#2E2E2E]/60 mb-6">
-                This action cannot be undone. All your data, projects, and account information will be permanently deleted.
+                Your account will be marked as deleted. You can contact support to restore it within 30 days.
               </p>
               <div className="flex space-x-3">
                 <button
@@ -734,7 +650,10 @@ const ClientSettingsPage: React.FC = () => {
                 >
                   Cancel
                 </button>
-                <button className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors">
+                <button 
+                  onClick={handleDeleteAccount}
+                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                >
                   Delete Account
                 </button>
               </div>

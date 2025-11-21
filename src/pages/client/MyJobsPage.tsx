@@ -1,81 +1,105 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { FirestoreService } from '../../lib/firestoreService';
+import { useAuth } from '../../contexts/AuthContext';
+import { CheckCircle, AlertCircle } from 'lucide-react';
 
 const MyJobsPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list');
   const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
   const [filterStatus, setFilterStatus] = useState('all');
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { currentUser } = useAuth();
+  const location = useLocation();
 
-  // Sample job data
-  const jobs = [
-    {
-      id: '1',
-      title: 'E-commerce Website Development',
-      status: 'Active',
-      budget: '$2,500',
-      proposals: 12,
-      postedDate: '2 days ago',
-      deadline: '2 weeks',
-      freelancer: 'John Smith',
-      progress: 65
-    },
-    {
-      id: '2',
-      title: 'Mobile App UI/UX Design',
-      status: 'In Progress',
-      budget: '$1,800',
-      proposals: 8,
-      postedDate: '1 week ago',
-      deadline: '10 days',
-      freelancer: 'Sarah Johnson',
-      progress: 30
-    },
-    {
-      id: '3',
-      title: 'Content Writing for Blog',
-      status: 'Completed',
-      budget: '$500',
-      proposals: 15,
-      postedDate: '3 weeks ago',
-      deadline: 'Completed',
-      freelancer: 'Mike Brown',
-      progress: 100
-    },
-    {
-      id: '4',
-      title: 'Logo Design Project',
-      status: 'Review',
-      budget: '$300',
-      proposals: 6,
-      postedDate: '5 days ago',
-      deadline: '3 days',
-      freelancer: 'Emma Davis',
-      progress: 90
-    },
-    {
-      id: '5',
-      title: 'Social Media Marketing',
-      status: 'Draft',
-      budget: '$1,200',
-      proposals: 0,
-      postedDate: 'Draft',
-      deadline: 'Not set',
-      freelancer: null,
-      progress: 0
+  // Check for success message from job posting
+  useEffect(() => {
+    if (location.state?.message) {
+      // You could show a toast notification here
+      console.log(location.state.message);
     }
-  ];
+  }, [location]);
 
-  const statusColors: { [key: string]: string } = {
-    'Active': 'bg-blue-100 text-blue-800',
-    'In Progress': 'bg-yellow-100 text-yellow-800',
-    'Completed': 'bg-green-100 text-green-800',
-    'Review': 'bg-purple-100 text-purple-800',
-    'Draft': 'bg-gray-100 text-gray-800',
-    'Paused': 'bg-orange-100 text-orange-800'
+  // Load jobs from Firebase
+  useEffect(() => {
+    const loadJobs = async () => {
+      if (!currentUser) {
+        console.log('No current user, skipping job load');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+        console.log('Loading jobs for client:', currentUser.uid);
+        console.log('Current user email:', currentUser.email);
+        
+        // Test basic Firestore connectivity
+        console.log('Testing Firestore connectivity...');
+        
+        const clientJobs = await FirestoreService.getClientJobs(currentUser.uid);
+        console.log('Loaded client jobs:', clientJobs);
+        console.log('Number of jobs found:', clientJobs.length);
+        
+        setJobs(clientJobs || []);
+        
+        if (!clientJobs || clientJobs.length === 0) {
+          console.log('No jobs found for client - this is normal if no jobs have been created yet');
+        }
+      } catch (error) {
+        console.error('Error loading jobs:', error);
+        console.error('Error details:', {
+          name: error instanceof Error ? error.name : 'Unknown',
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : 'No stack trace'
+        });
+        setError(`Failed to load jobs: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Add a small delay to ensure currentUser is fully loaded
+    const timeoutId = setTimeout(loadJobs, 100);
+    return () => clearTimeout(timeoutId);
+  }, [currentUser]);
+
+  const getStatusColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'active':
+        return 'bg-green-100 text-green-800';
+      case 'draft':
+        return 'bg-gray-100 text-gray-800';
+      case 'in progress':
+        return 'bg-blue-100 text-blue-800';
+      case 'completed':
+        return 'bg-purple-100 text-purple-800';
+      case 'review':
+        return 'bg-yellow-100 text-yellow-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
   };
 
-  const filteredJobs = filterStatus === 'all' ? jobs : jobs.filter(job => 
-    job.status.toLowerCase() === filterStatus.toLowerCase()
+  const formatDate = (date: any) => {
+    if (!date) return 'Unknown';
+    
+    const dateObj = date.toDate ? date.toDate() : new Date(date);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - dateObj.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 1) return '1 day ago';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.ceil(diffDays / 7)} weeks ago`;
+    return `${Math.ceil(diffDays / 30)} months ago`;
+  };
+
+  const filteredJobs = jobs.filter(job => 
+    filterStatus === 'all' || job.status?.toLowerCase() === filterStatus.toLowerCase()
   );
 
   const handleSelectJob = (jobId: string) => {
@@ -105,38 +129,46 @@ const MyJobsPage: React.FC = () => {
             className="mt-1 h-4 w-4 text-[#FF6B00] border-[#ffeee3] rounded focus:ring-[#FF6B00]"
           />
           <div>
-            <h3 className="font-semibold text-[#2E2E2E] mb-1">{job.title}</h3>
-            <p className="text-sm text-[#2E2E2E]/60">{job.budget} • {job.proposals} proposals</p>
+            <h3 className="font-semibold text-[#2E2E2E] mb-1">{job.title || 'Untitled Job'}</h3>
+            <p className="text-sm text-[#2E2E2E]/60">
+              {job.budget || 'Budget not set'} • {job.applicants?.length || 0} applications
+            </p>
+            {job.category && (
+              <p className="text-xs text-[#FF6B00] mt-1">{job.category}</p>
+            )}
           </div>
         </div>
-        <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[job.status]}`}>
-          {job.status}
+        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(job.status)}`}>
+          {job.status || 'Draft'}
         </span>
       </div>
       
-      {job.freelancer && (
+      {job.description && (
         <div className="mb-4">
-          <p className="text-sm text-[#2E2E2E]/60 mb-2">Assigned to: <span className="font-medium text-[#2E2E2E]">{job.freelancer}</span></p>
-          <div className="flex items-center space-x-3">
-            <div className="flex-1">
-              <div className="flex items-center justify-between text-sm mb-1">
-                <span className="text-[#2E2E2E]/60">Progress</span>
-                <span className="font-medium text-[#2E2E2E]">{job.progress}%</span>
-              </div>
-              <div className="w-full bg-[#ffeee3] rounded-full h-2">
-                <div 
-                  className="bg-[#FF6B00] h-2 rounded-full transition-all duration-300" 
-                  style={{ width: `${job.progress}%` }}
-                ></div>
-              </div>
-            </div>
+          <p className="text-sm text-[#2E2E2E]/80 line-clamp-2">{job.description}</p>
+        </div>
+      )}
+
+      {job.skills && job.skills.length > 0 && (
+        <div className="mb-4">
+          <div className="flex flex-wrap gap-1">
+            {job.skills.slice(0, 3).map((skill: string, index: number) => (
+              <span key={index} className="px-2 py-1 bg-[#ffeee3] text-[#2E2E2E] text-xs rounded">
+                {skill}
+              </span>
+            ))}
+            {job.skills.length > 3 && (
+              <span className="px-2 py-1 bg-[#ffeee3] text-[#2E2E2E] text-xs rounded">
+                +{job.skills.length - 3} more
+              </span>
+            )}
           </div>
         </div>
       )}
       
       <div className="flex items-center justify-between pt-4 border-t border-[#ffeee3]">
         <div className="text-sm text-[#2E2E2E]/60">
-          Posted {job.postedDate} • Due {job.deadline}
+          Posted {formatDate(job.createdAt)} • {job.timeline || 'Timeline not set'}
         </div>
         <div className="flex items-center space-x-2">
           <Link 
@@ -145,11 +177,14 @@ const MyJobsPage: React.FC = () => {
           >
             View Details
           </Link>
-          <button className="text-[#2E2E2E]/60 hover:text-[#2E2E2E] text-sm">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-            </svg>
-          </button>
+          {job.status === 'draft' && (
+            <Link 
+              to={`/client/post-job?edit=${job.id}`}
+              className="text-[#2E2E2E]/60 hover:text-[#2E2E2E] text-sm font-medium"
+            >
+              Edit
+            </Link>
+          )}
         </div>
       </div>
     </div>
@@ -261,10 +296,84 @@ const MyJobsPage: React.FC = () => {
         <div className="section-container">
           <div className="max-w-6xl mx-auto">
             
-            {viewMode === 'list' ? (
-              <div>
-                {/* Table Header */}
-                <div className="bg-white rounded-t-xl border border-[#ffeee3] p-4">
+            {/* Success Message */}
+            {location.state?.message && (
+              <div className="mb-6 flex items-center p-4 bg-green-50 border border-green-200 rounded-lg">
+                <CheckCircle className="w-5 h-5 text-green-600 mr-3" />
+                <p className="text-green-800">{location.state.message}</p>
+              </div>
+            )}
+
+            {/* Error State */}
+            {error && (
+              <div className="mb-6 flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-center">
+                  <AlertCircle className="w-5 h-5 text-red-600 mr-3" />
+                  <p className="text-red-800">{error}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    if (currentUser) {
+                      setError(null);
+                      const loadJobs = async () => {
+                        try {
+                          setLoading(true);
+                          const clientJobs = await FirestoreService.getClientJobs(currentUser.uid);
+                          setJobs(clientJobs || []);
+                        } catch (error) {
+                          console.error('Retry failed:', error);
+                          setError(`Failed to load jobs: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                        } finally {
+                          setLoading(false);
+                        }
+                      };
+                      loadJobs();
+                    }
+                  }}
+                  className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {/* Loading State */}
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B00] mx-auto mb-4"></div>
+                <p className="text-[#2E2E2E]/60">Loading your jobs...</p>
+              </div>
+            ) : filteredJobs.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-[#2E2E2E]/40 mb-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-[#2E2E2E] mb-2">
+                  {filterStatus === 'all' ? 'No jobs found' : `No ${filterStatus} jobs found`}
+                </h3>
+                <p className="text-[#2E2E2E]/60 mb-6">
+                  {filterStatus === 'all' 
+                    ? "You haven't posted any jobs yet. Start by creating your first job post."
+                    : `You don't have any ${filterStatus} jobs at the moment.`
+                  }
+                </p>
+                {filterStatus === 'all' && (
+                  <Link 
+                    to="/client/post-job"
+                    className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                  >
+                    Post Your First Job
+                  </Link>
+                )}
+              </div>
+            ) : (
+              <>
+                {viewMode === 'list' ? (
+                <div>
+                  {/* Table Header */}
+                  <div className="bg-white rounded-t-xl border border-[#ffeee3] p-4">
                   <div className="flex items-center space-x-4">
                     <input
                       type="checkbox"
@@ -297,17 +406,17 @@ const MyJobsPage: React.FC = () => {
                         <div className="flex-1 grid grid-cols-6 gap-4 text-sm">
                           <div>
                             <Link to={`/client/job/${job.id}`} className="font-medium text-[#2E2E2E] hover:text-[#FF6B00]">
-                              {job.title}
+                              {job.title || 'Untitled Job'}
                             </Link>
                           </div>
                           <div>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[job.status]}`}>
-                              {job.status}
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(job.status)}`}>
+                              {job.status || 'Draft'}
                             </span>
                           </div>
-                          <div className="text-[#2E2E2E]/80">{job.budget}</div>
-                          <div className="text-[#2E2E2E]/80">{job.proposals}</div>
-                          <div className="text-[#2E2E2E]/80">{job.postedDate}</div>
+                          <div className="text-[#2E2E2E]/80">{job.budget || 'Not set'}</div>
+                          <div className="text-[#2E2E2E]/80">{job.applicants?.length || 0}</div>
+                          <div className="text-[#2E2E2E]/80">{formatDate(job.createdAt)}</div>
                           <div>
                             <Link 
                               to={`/client/job/${job.id}`}
@@ -330,23 +439,7 @@ const MyJobsPage: React.FC = () => {
                 ))}
               </div>
             )}
-
-            {filteredJobs.length === 0 && (
-              <div className="text-center py-12">
-                <div className="text-[#2E2E2E]/40 mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-[#2E2E2E] mb-2">No jobs found</h3>
-                <p className="text-[#2E2E2E]/60 mb-6">You haven't posted any jobs yet. Start by creating your first job post.</p>
-                <Link 
-                  to="/client/post-job"
-                  className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-3 rounded-lg font-medium transition-colors"
-                >
-                  Post Your First Job
-                </Link>
-              </div>
+              </>
             )}
           </div>
         </div>

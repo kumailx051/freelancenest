@@ -67,6 +67,8 @@ import PressPage from './pages/company/PressPage'
 
 // Client Pages
 import ClientDashboard from './pages/client/ClientDashboard'
+import BrowseFreelancersPage from './pages/client/BrowseFreelancersPage'
+import FreelancerProfilePage from './pages/client/FreelancerProfilePage'
 import PostJobPage from './pages/client/PostJobPage'
 import MyJobsPage from './pages/client/MyJobsPage'
 import ShortlistComparePage from './pages/client/ShortlistComparePage'
@@ -125,6 +127,8 @@ function App() {
             <ClientLayout>
               <Routes>
                 <Route path="dashboard" element={<ClientDashboard />} />
+                <Route path="browse-freelancers" element={<BrowseFreelancersPage />} />
+                <Route path="freelancer/:id" element={<FreelancerProfilePage />} />
                 <Route path="post-job" element={<PostJobPage />} />
                 <Route path="my-jobs" element={<MyJobsPage />} />
                 <Route path="shortlist-compare" element={<ShortlistComparePage />} />

@@ -40,6 +40,23 @@ const LoginPage: React.FC = () => {
 
       if (userProfiles.length > 0) {
         const userProfile = userProfiles[0];
+        
+        // Check if account is deactivated
+        if (userProfile.deactivated) {
+          setError('Your account has been deactivated. Please contact support to reactivate your account.');
+          await AuthService.signOut();
+          setLoading(false);
+          return;
+        }
+
+        // Check if account is deleted
+        if (userProfile.deleted) {
+          setError('Your account has been deleted. Please contact support if you wish to restore your account.');
+          await AuthService.signOut();
+          setLoading(false);
+          return;
+        }
+
         const accountType = userProfile.accountType;
 
         // Store user info in localStorage if remember me is checked

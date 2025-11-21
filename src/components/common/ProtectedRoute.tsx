@@ -7,7 +7,7 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole }) => {
-  const { currentUser, loading } = useAuth();
+  const { currentUser, userRole, loading } = useAuth();
   const location = useLocation();
 
   // Show loading spinner while checking authentication
@@ -28,11 +28,28 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  console.log('User authenticated:', currentUser.uid, 'accessing:', location.pathname);
+  console.log('User authenticated:', currentUser.uid, 'Role:', userRole, 'accessing:', location.pathname);
 
-  // TODO: Add role-based access control if needed
-  // For now, any authenticated user can access both client and freelancer routes
-  // You can implement role checking here later if you store user roles in Firestore
+  // Role-based access control
+  if (requiredRole && userRole !== requiredRole) {
+    // If a client tries to access freelancer routes, redirect to client dashboard
+    if (userRole === 'client' && requiredRole === 'freelancer') {
+      console.log('Client attempting to access freelancer route, redirecting to client dashboard');
+      return <Navigate to="/client/dashboard" replace />;
+    }
+    
+    // If a freelancer tries to access client routes, redirect to freelancer dashboard
+    if (userRole === 'freelancer' && requiredRole === 'client') {
+      console.log('Freelancer attempting to access client route, redirecting to freelancer dashboard');
+      return <Navigate to="/freelancer/dashboard" replace />;
+    }
+    
+    // If user has no role yet (e.g., hasn't completed onboarding) and trying to access role-specific routes
+    if (!userRole) {
+      console.log('User has no role, redirecting to onboarding');
+      return <Navigate to="/onboarding" replace />;
+    }
+  }
 
   return <>{children}</>;
 };

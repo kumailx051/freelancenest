@@ -107,7 +107,7 @@ const SignupPage: React.FC = () => {
           marketingOptIn: false,
           termsAccepted: true, // Assumed for Google sign-in
           profileCompleted: false,
-          emailVerified: user.emailVerified,
+          emailVerified: false, // Always require OTP verification
           photoURL: user.photoURL || null,
           createdAt: new Date(),
           updatedAt: new Date()
@@ -204,7 +204,7 @@ const SignupPage: React.FC = () => {
         marketingOptIn: formData.marketingOptIn,
         termsAccepted: formData.termsAccepted,
         profileCompleted: false,
-        emailVerified: user.emailVerified,
+        emailVerified: false, // Always require OTP verification
         createdAt: new Date(),
         updatedAt: new Date()
       };

@@ -32,7 +32,7 @@ export class ImageUploadService {
     quality: 100
   };
 
-  private static readonly API_KEY = import.meta.env.VITE_IMGBB_API_KEY;
+  private static readonly API_KEY = import.meta.env.VITE_IMGBB_API_KEY || 'af89815a37ad8b0ac30f6e34839d6735';
 
   /**
    * Validates an image file before upload

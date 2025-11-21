@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
-  Search, 
   Bell, 
   MessageSquare, 
   User, 
@@ -13,13 +12,95 @@ import {
   Settings,
   LogOut,
   Menu,
-  X
+  X,
+  CreditCard,
+  CheckCircle
 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { FreelanceFirestoreService } from '../../lib/firestoreService';
 
 const FreelancerHeader: React.FC = () => {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { currentUser, logout } = useAuth();
+  const [freelancerData, setFreelancerData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Load freelancer data from Firebase
+  useEffect(() => {
+    const loadFreelancerData = async () => {
+      try {
+        if (currentUser) {
+          const users = await FreelanceFirestoreService.getUserProfile(currentUser.uid);
+          if (users.length > 0) {
+            setFreelancerData(users[0]);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading freelancer data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadFreelancerData();
+  }, [currentUser]);
+
+  // Sample notifications data
+  const notifications = [
+    {
+      id: 1,
+      title: 'New Job Opportunity',
+      message: 'A new project matches your skills in React Development',
+      time: '2 minutes ago',
+      read: false,
+      type: 'job'
+    },
+    {
+      id: 2,
+      title: 'Payment Received',
+      message: 'You received $500 for "E-commerce Website" project',
+      time: '1 hour ago',
+      read: false,
+      type: 'payment'
+    },
+    {
+      id: 3,
+      title: 'Project Update',
+      message: 'Client approved your milestone submission',
+      time: '3 hours ago',
+      read: true,
+      type: 'project'
+    },
+    {
+      id: 4,
+      title: 'New Message',
+      message: 'John Smith sent you a message about the project',
+      time: '5 hours ago',
+      read: true,
+      type: 'message'
+    }
+  ];
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'job':
+        return <Briefcase className="w-4 h-4 text-[#FF6B00]" />;
+      case 'payment':
+        return <CreditCard className="w-4 h-4 text-green-500" />;
+      case 'project':
+        return <CheckCircle className="w-4 h-4 text-blue-500" />;
+      case 'message':
+        return <MessageSquare className="w-4 h-4 text-purple-500" />;
+      default:
+        return <Bell className="w-4 h-4 text-gray-500" />;
+    }
+  };
 
   const navigation = [
     { name: 'Dashboard', href: '/freelancer/dashboard', icon: Home },
@@ -32,10 +113,47 @@ const FreelancerHeader: React.FC = () => {
     { name: 'Profile', href: '/freelancer/profile', icon: User },
     { name: 'Portfolio', href: '/freelancer/portfolio', icon: Briefcase },
     { name: 'Settings', href: '/freelancer/settings', icon: Settings },
-    { name: 'Sign Out', href: '/login', icon: LogOut },
+    { name: 'Sign Out', href: '#', icon: LogOut, onClick: true },
   ];
 
   const isActive = (path: string) => location.pathname === path;
+
+  const getDisplayName = () => {
+    if (freelancerData?.profile?.fullName) return freelancerData.profile.fullName;
+    if (freelancerData?.profile?.firstName && freelancerData?.profile?.lastName) {
+      return `${freelancerData.profile.firstName} ${freelancerData.profile.lastName}`;
+    }
+    if (freelancerData?.profile?.displayName) return freelancerData.profile.displayName;
+    if (freelancerData?.fullName) return freelancerData.fullName;
+    if (freelancerData?.firstName && freelancerData?.lastName) {
+      return `${freelancerData.firstName} ${freelancerData.lastName}`;
+    }
+    if (freelancerData?.displayName) return freelancerData.displayName;
+    return currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Freelancer';
+  };
+
+  const getJobTitle = () => {
+    return freelancerData?.profile?.jobTitle || freelancerData?.jobTitle || 'Freelancer';
+  };
+
+  const handleSignOut = async () => {
+    try {
+      setIsProfileMenuOpen(false);
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      // Still navigate to login page even if logout fails
+      navigate('/login');
+    }
+  };
+
+  const handleProfileMenuClick = (item: any) => {
+    setIsProfileMenuOpen(false);
+    if (item.onClick) {
+      handleSignOut();
+    }
+  };
 
   return (
     <header className="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-50">
@@ -74,13 +192,64 @@ const FreelancerHeader: React.FC = () => {
           {/* Right side */}
           <div className="flex items-center space-x-3">
             {/* Notifications */}
-            <Link
-              to="/freelancer/notifications"
-              className="p-2 text-gray-600 hover:text-[#FF6B00] hover:bg-[#ffeee3] rounded-md transition-colors relative"
-            >
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </Link>
+            <div className="relative">
+              <button
+                onClick={() => setIsNotificationMenuOpen(!isNotificationMenuOpen)}
+                className="p-2 text-gray-600 hover:text-[#FF6B00] hover:bg-[#ffeee3] rounded-md transition-colors relative"
+              >
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Notifications Dropdown */}
+              {isNotificationMenuOpen && (
+                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                  <div className="px-4 py-2 border-b border-gray-100">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-[#2E2E2E]">Notifications</h3>
+                      {unreadCount > 0 && (
+                        <span className="text-xs text-[#FF6B00] bg-[#ffeee3] px-2 py-1 rounded-full">
+                          {unreadCount} new
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {notifications.map((notification) => (
+                      <div
+                        key={notification.id}
+                        className={`px-4 py-3 hover:bg-gray-50 cursor-pointer ${!notification.read ? 'bg-blue-50' : ''}`}
+                      >
+                        <div className="flex items-start space-x-3">
+                          <div className="flex items-center space-x-2">
+                            {getNotificationIcon(notification.type)}
+                            <div className={`w-2 h-2 rounded-full ${!notification.read ? 'bg-[#FF6B00]' : 'bg-transparent'}`}></div>
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-[#2E2E2E]">{notification.title}</p>
+                            <p className="text-xs text-[#2E2E2E]/80 mt-1">{notification.message}</p>
+                            <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="px-4 py-2 border-t border-gray-100">
+                    <Link 
+                      to="/freelancer/notifications" 
+                      className="text-sm text-[#FF6B00] hover:underline"
+                      onClick={() => setIsNotificationMenuOpen(false)}
+                    >
+                      View all notifications
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Messages */}
             <Link
@@ -97,22 +266,38 @@ const FreelancerHeader: React.FC = () => {
                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
                 className="flex items-center space-x-2 p-2 text-gray-600 hover:text-[#FF6B00] hover:bg-[#ffeee3] rounded-md transition-colors"
               >
-                <img
-                  src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=64&h=64&fit=crop&crop=face&auto=format"
-                  alt="Profile"
-                  className="w-8 h-8 rounded-full object-cover border-2 border-[#FF6B00]"
-                />
+                {loading ? (
+                  <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse"></div>
+                ) : (
+                  <img
+                    src={freelancerData?.profile?.profilePictureUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(getDisplayName())}&background=FF6B00&color=fff&size=32`}
+                    alt="Profile"
+                    className="w-8 h-8 rounded-full object-cover border-2 border-[#FF6B00]"
+                  />
+                )}
                 <ChevronDown className="w-4 h-4" />
               </button>
 
               {isProfileMenuOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
                   <div className="px-4 py-2 border-b border-gray-200">
-                    <p className="text-sm font-medium text-[#2E2E2E]">Alex Thompson</p>
-                    <p className="text-xs text-gray-500">Full Stack Developer</p>
+                    <p className="text-sm font-medium text-[#2E2E2E]">{getDisplayName()}</p>
+                    <p className="text-xs text-gray-500">{getJobTitle()}</p>
                   </div>
                   {profileMenuItems.map((item) => {
                     const Icon = item.icon;
+                    if (item.onClick) {
+                      return (
+                        <button
+                          key={item.name}
+                          onClick={() => handleProfileMenuClick(item)}
+                          className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-[#ffeee3] hover:text-[#FF6B00] transition-colors text-left"
+                        >
+                          <Icon className="w-4 h-4 mr-2" />
+                          {item.name}
+                        </button>
+                      );
+                    }
                     return (
                       <Link
                         key={item.name}
@@ -166,11 +351,14 @@ const FreelancerHeader: React.FC = () => {
         )}
       </div>
 
-      {/* Click outside to close profile menu */}
-      {isProfileMenuOpen && (
+      {/* Click outside to close menus */}
+      {(isProfileMenuOpen || isNotificationMenuOpen) && (
         <div
           className="fixed inset-0 z-40"
-          onClick={() => setIsProfileMenuOpen(false)}
+          onClick={() => {
+            setIsProfileMenuOpen(false);
+            setIsNotificationMenuOpen(false);
+          }}
         />
       )}
     </header>

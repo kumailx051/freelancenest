@@ -1,139 +1,248 @@
-import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Search, Bell, MessageCircle, Settings, User, LogOut, ChevronDown, Menu, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { 
+  Bell, 
+  MessageSquare, 
+  User, 
+  ChevronDown,
+  Home,
+  Briefcase,
+  Users,
+  Settings,
+  LogOut,
+  Menu,
+  X,
+  FileText,
+  CreditCard,
+  CheckCircle
+} from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { FreelanceFirestoreService } from '../../lib/firestoreService';
 
 const ClientHeader: React.FC = () => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
-  const [isNotificationDropdownOpen, setIsNotificationDropdownOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { currentUser, logout } = useAuth();
+  const [clientData, setClientData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Mock client data
-  const clientData = {
-    name: 'Sarah Williams',
-    email: 'sarah.williams@example.com',
-    avatar: '/api/placeholder/40/40',
-    company: 'TechCorp Inc.'
-  };
+  // Load client data from Firebase
+  useEffect(() => {
+    const loadClientData = async () => {
+      try {
+        if (currentUser) {
+          const users = await FreelanceFirestoreService.getUserProfile(currentUser.uid);
+          if (users.length > 0) {
+            setClientData(users[0]);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading client data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // Navigation items for client
-  const navItems = [
-    { label: 'Dashboard', href: '/client/dashboard' },
-    { label: 'My Jobs', href: '/client/my-jobs' },
-    { label: 'Find Talent', href: '/talent-marketplace' },
-    { label: 'Messages', href: '/client/messages' },
-  ];
+    loadClientData();
+  }, [currentUser]);
 
-  // Mock notifications
+  // Sample notifications data
   const notifications = [
-    { id: 1, message: 'New proposal received for "Website Redesign"', time: '2 hours ago', read: false },
-    { id: 2, message: 'Milestone completed for "Mobile App"', time: '4 hours ago', read: false },
-    { id: 3, message: 'Payment released successfully', time: '1 day ago', read: true },
+    {
+      id: 1,
+      title: 'New Proposal Received',
+      message: 'Sarah Johnson submitted a proposal for your React project',
+      time: '5 minutes ago',
+      read: false,
+      type: 'proposal'
+    },
+    {
+      id: 2,
+      title: 'Project Milestone Completed',
+      message: 'Mike Brown completed milestone 2 of your website project',
+      time: '2 hours ago',
+      read: false,
+      type: 'milestone'
+    },
+    {
+      id: 3,
+      title: 'Payment Processed',
+      message: 'Your payment of $500 has been processed successfully',
+      time: '1 day ago',
+      read: true,
+      type: 'payment'
+    },
+    {
+      id: 4,
+      title: 'New Message',
+      message: 'Alex Thompson sent you a message about the logo design',
+      time: '2 days ago',
+      read: true,
+      type: 'message'
+    }
   ];
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Searching for:', searchQuery);
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'proposal':
+        return <FileText className="w-4 h-4 text-[#FF6B00]" />;
+      case 'milestone':
+        return <CheckCircle className="w-4 h-4 text-green-500" />;
+      case 'payment':
+        return <CreditCard className="w-4 h-4 text-blue-500" />;
+      case 'message':
+        return <MessageSquare className="w-4 h-4 text-purple-500" />;
+      default:
+        return <Bell className="w-4 h-4 text-gray-500" />;
+    }
   };
 
-  const handleLogout = () => {
-    // Clear any stored auth data
-    localStorage.removeItem('accountType');
-    // Redirect to landing page
-    window.location.href = '/';
+  // Navigation items for client
+  const navigation = [
+    { name: 'Dashboard', href: '/client/dashboard', icon: Home },
+    { name: 'My Jobs', href: '/client/my-jobs', icon: Briefcase },
+    { name: 'Find Talent', href: '/client/browse-freelancers', icon: Users },
+  ];
+
+  const profileMenuItems = [
+    { name: 'Profile', href: '/client/profile', icon: User },
+    { name: 'Settings', href: '/client/settings', icon: Settings },
+    { name: 'Sign Out', href: '#', icon: LogOut, onClick: true },
+  ];
+
+  const isActive = (path: string) => location.pathname === path;
+
+  const getDisplayName = () => {
+    if (clientData?.profile?.fullName) return clientData.profile.fullName;
+    if (clientData?.profile?.firstName && clientData?.profile?.lastName) {
+      return `${clientData.profile.firstName} ${clientData.profile.lastName}`;
+    }
+    if (clientData?.profile?.displayName) return clientData.profile.displayName;
+    if (clientData?.fullName) return clientData.fullName;
+    if (clientData?.firstName && clientData?.lastName) {
+      return `${clientData.firstName} ${clientData.lastName}`;
+    }
+    if (clientData?.displayName) return clientData.displayName;
+    return currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Client';
+  };
+
+  const getJobTitle = () => {
+    return clientData?.profile?.jobTitle || clientData?.profile?.companyName || clientData?.jobTitle || clientData?.companyName || 'Client';
+  };
+
+  const handleSignOut = async () => {
+    try {
+      setIsProfileMenuOpen(false);
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      // Still navigate to login page even if logout fails
+      navigate('/login');
+    }
+  };
+
+  const handleProfileMenuClick = (item: any) => {
+    setIsProfileMenuOpen(false);
+    if (item.onClick) {
+      handleSignOut();
+    }
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-100">
+    <header className="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <div className="flex items-center mr-8">
-            <Link to="/client/dashboard" className="text-2xl font-bold">
-              <span className="text-[#2E2E2E]">Freelance</span>
-              <span className="text-[#FF6B00]">Nest</span>
+          {/* Brand Name */}
+          <div className="flex items-center">
+            <Link to="/client/dashboard" className="flex items-center">
+              <span className="text-2xl font-bold text-[#FF6B00] tracking-tight">
+                FreelanceNest
+              </span>
             </Link>
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8 ml-4">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                to={item.href}
-                className={`text-sm font-medium transition-colors ${
-                  location.pathname === item.href
-                    ? 'text-[#FF6B00]'
-                    : 'text-[#2E2E2E] hover:text-[#FF6B00]'
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
+          <nav className="hidden md:flex space-x-6">
+            {navigation.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isActive(item.href)
+                      ? 'text-[#FF6B00] bg-[#ffeee3]'
+                      : 'text-[#2E2E2E] hover:text-[#FF6B00] hover:bg-[#ffeee3]'
+                  }`}
+                >
+                  <Icon className="w-4 h-4 mr-2" />
+                  {item.name}
+                </Link>
+              );
+            })}
           </nav>
 
-          {/* Search Bar */}
-          <div className="hidden lg:flex flex-1 max-w-lg mx-8">
-            <form onSubmit={handleSearchSubmit} className="relative w-full">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Search freelancers, services..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
-                />
-              </div>
-            </form>
-          </div>
-
-          {/* Right side - Desktop */}
-          <div className="hidden md:flex items-center space-x-4">
-            {/* Post Job Button */}
-            <Link
-              to="/client/post-job"
-              className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-4 py-2 rounded-lg font-medium transition-colors"
-            >
-              Post a Job
-            </Link>
-
+          {/* Right side */}
+          <div className="flex items-center space-x-3">
             {/* Notifications */}
             <div className="relative">
               <button
-                onClick={() => setIsNotificationDropdownOpen(!isNotificationDropdownOpen)}
-                className="relative p-2 text-gray-600 hover:text-[#FF6B00] transition-colors"
+                onClick={() => setIsNotificationMenuOpen(!isNotificationMenuOpen)}
+                className="p-2 text-gray-600 hover:text-[#FF6B00] hover:bg-[#ffeee3] rounded-md transition-colors relative"
               >
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  <span className="absolute top-1 right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                     {unreadCount}
                   </span>
                 )}
               </button>
 
               {/* Notifications Dropdown */}
-              {isNotificationDropdownOpen && (
+              {isNotificationMenuOpen && (
                 <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
                   <div className="px-4 py-2 border-b border-gray-100">
-                    <h3 className="font-semibold text-[#2E2E2E]">Notifications</h3>
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-[#2E2E2E]">Notifications</h3>
+                      {unreadCount > 0 && (
+                        <span className="text-xs text-[#FF6B00] bg-[#ffeee3] px-2 py-1 rounded-full">
+                          {unreadCount} new
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="max-h-64 overflow-y-auto">
                     {notifications.map((notification) => (
                       <div
                         key={notification.id}
-                        className={`px-4 py-3 hover:bg-gray-50 ${!notification.read ? 'bg-blue-50' : ''}`}
+                        className={`px-4 py-3 hover:bg-gray-50 cursor-pointer ${!notification.read ? 'bg-blue-50' : ''}`}
                       >
-                        <p className="text-sm text-[#2E2E2E]">{notification.message}</p>
-                        <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+                        <div className="flex items-start space-x-3">
+                          <div className="flex items-center space-x-2">
+                            {getNotificationIcon(notification.type)}
+                            <div className={`w-2 h-2 rounded-full ${!notification.read ? 'bg-[#FF6B00]' : 'bg-transparent'}`}></div>
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-[#2E2E2E]">{notification.title}</p>
+                            <p className="text-xs text-[#2E2E2E]/80 mt-1">{notification.message}</p>
+                            <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
                   <div className="px-4 py-2 border-t border-gray-100">
-                    <Link to="/client/notifications" className="text-sm text-[#FF6B00] hover:underline">
+                    <Link 
+                      to="/client/notifications" 
+                      className="text-sm text-[#FF6B00] hover:underline"
+                      onClick={() => setIsNotificationMenuOpen(false)}
+                    >
                       View all notifications
                     </Link>
                   </div>
@@ -144,192 +253,110 @@ const ClientHeader: React.FC = () => {
             {/* Messages */}
             <Link
               to="/client/messages"
-              className="p-2 text-gray-600 hover:text-[#FF6B00] transition-colors"
+              className="p-2 text-gray-600 hover:text-[#FF6B00] hover:bg-[#ffeee3] rounded-md transition-colors relative"
             >
-              <MessageCircle className="w-5 h-5" />
+              <MessageSquare className="w-5 h-5" />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full"></span>
             </Link>
 
             {/* Profile Dropdown */}
             <div className="relative">
               <button
-                onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                className="flex items-center space-x-2 p-1 rounded-lg hover:bg-gray-50 transition-colors"
+                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                className="flex items-center space-x-2 p-2 text-gray-600 hover:text-[#FF6B00] hover:bg-[#ffeee3] rounded-md transition-colors"
               >
-                <img
-                  src={clientData.avatar}
-                  alt={clientData.name}
-                  className="w-8 h-8 rounded-full object-cover"
-                />
-                <ChevronDown className="w-4 h-4 text-gray-500" />
+                {loading ? (
+                  <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse"></div>
+                ) : (
+                  <img
+                    src={clientData?.profile?.profilePictureUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(getDisplayName())}&background=FF6B00&color=fff&size=32`}
+                    alt="Profile"
+                    className="w-8 h-8 rounded-full object-cover border-2 border-[#FF6B00]"
+                  />
+                )}
+                <ChevronDown className="w-4 h-4" />
               </button>
 
-              {/* Profile Dropdown */}
-              {isProfileDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-                  <div className="px-4 py-3 border-b border-gray-100">
-                    <div className="flex items-center space-x-3">
-                      <img
-                        src={clientData.avatar}
-                        alt={clientData.name}
-                        className="w-10 h-10 rounded-full object-cover"
-                      />
-                      <div>
-                        <p className="font-medium text-[#2E2E2E]">{clientData.name}</p>
-                        <p className="text-sm text-gray-500">{clientData.company}</p>
-                      </div>
-                    </div>
+              {isProfileMenuOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
+                  <div className="px-4 py-2 border-b border-gray-200">
+                    <p className="text-sm font-medium text-[#2E2E2E]">{getDisplayName()}</p>
+                    <p className="text-xs text-gray-500">{getJobTitle()}</p>
                   </div>
-                  
-                  <div className="py-2">
-                    <Link
-                      to="/client/profile"
-                      className="flex items-center px-4 py-2 text-sm text-[#2E2E2E] hover:bg-gray-50"
-                    >
-                      <User className="w-4 h-4 mr-3" />
-                      View Profile
-                    </Link>
-                    <Link
-                      to="/client/settings"
-                      className="flex items-center px-4 py-2 text-sm text-[#2E2E2E] hover:bg-gray-50"
-                    >
-                      <Settings className="w-4 h-4 mr-3" />
-                      Settings
-                    </Link>
-                    <Link
-                      to="/client/invoices-tax"
-                      className="flex items-center px-4 py-2 text-sm text-[#2E2E2E] hover:bg-gray-50"
-                    >
-                      <svg className="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                      </svg>
-                      Billing & Invoices
-                    </Link>
-                  </div>
-
-                  <div className="border-t border-gray-100 pt-2">
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                    >
-                      <LogOut className="w-4 h-4 mr-3" />
-                      Sign Out
-                    </button>
-                  </div>
+                  {profileMenuItems.map((item) => {
+                    const Icon = item.icon;
+                    if (item.onClick) {
+                      return (
+                        <button
+                          key={item.name}
+                          onClick={() => handleProfileMenuClick(item)}
+                          className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-[#ffeee3] hover:text-[#FF6B00] transition-colors text-left"
+                        >
+                          <Icon className="w-4 h-4 mr-2" />
+                          {item.name}
+                        </button>
+                      );
+                    }
+                    return (
+                      <Link
+                        key={item.name}
+                        to={item.href}
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-[#ffeee3] hover:text-[#FF6B00] transition-colors"
+                        onClick={() => setIsProfileMenuOpen(false)}
+                      >
+                        <Icon className="w-4 h-4 mr-2" />
+                        {item.name}
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Mobile menu button */}
-          <div className="md:hidden">
+            {/* Mobile menu button */}
             <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="p-2 text-gray-600 hover:text-[#FF6B00] transition-colors"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="md:hidden p-2 text-gray-600 hover:text-[#FF6B00] hover:bg-[#ffeee3] rounded-md transition-colors"
             >
-              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>
-      </div>
 
-      {/* Mobile Menu */}
-      {isMenuOpen && (
-        <div className="md:hidden bg-white border-t border-gray-200">
-          <div className="px-4 py-4 space-y-4">
-            {/* Search */}
-            <form onSubmit={handleSearchSubmit}>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Search freelancers, services..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00]"
-                />
-              </div>
-            </form>
-
-            {/* Navigation */}
-            <nav className="space-y-2">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  to={item.href}
-                  className={`block py-2 text-base font-medium ${
-                    location.pathname === item.href
-                      ? 'text-[#FF6B00]'
-                      : 'text-[#2E2E2E]'
-                  }`}
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-
-            {/* Quick Actions */}
-            <div className="space-y-2 pt-4 border-t border-gray-200">
-              <Link
-                to="/client/post-job"
-                className="block w-full bg-[#FF6B00] text-white text-center py-2 rounded-lg font-medium"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Post a Job
-              </Link>
-              
-              <div className="flex space-x-2">
-                <Link
-                  to="/client/messages"
-                  className="flex-1 flex items-center justify-center py-2 border border-gray-200 rounded-lg"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <MessageCircle className="w-5 h-5 mr-2" />
-                  Messages
-                </Link>
-                <Link
-                  to="/client/profile"
-                  className="flex-1 flex items-center justify-center py-2 border border-gray-200 rounded-lg"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <User className="w-5 h-5 mr-2" />
-                  Profile
-                </Link>
-              </div>
-            </div>
-
-            {/* User Info */}
-            <div className="pt-4 border-t border-gray-200">
-              <div className="flex items-center space-x-3 mb-3">
-                <img
-                  src={clientData.avatar}
-                  alt={clientData.name}
-                  className="w-10 h-10 rounded-full object-cover"
-                />
-                <div>
-                  <p className="font-medium text-[#2E2E2E]">{clientData.name}</p>
-                  <p className="text-sm text-gray-500">{clientData.company}</p>
-                </div>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center w-full text-left py-2 text-red-600"
-              >
-                <LogOut className="w-4 h-4 mr-3" />
-                Sign Out
-              </button>
+        {/* Mobile Navigation Menu */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden border-t border-gray-200 bg-white">
+            <div className="px-2 pt-2 pb-3 space-y-1">
+              {navigation.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    className={`flex items-center px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                      isActive(item.href)
+                        ? 'text-[#FF6B00] bg-[#ffeee3]'
+                        : 'text-[#2E2E2E] hover:text-[#FF6B00] hover:bg-[#ffeee3]'
+                    }`}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <Icon className="w-5 h-5 mr-3" />
+                    {item.name}
+                  </Link>
+                );
+              })}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Click outside handlers */}
-      {(isProfileDropdownOpen || isNotificationDropdownOpen) && (
+      {/* Click outside to close menus */}
+      {(isProfileMenuOpen || isNotificationMenuOpen) && (
         <div
           className="fixed inset-0 z-40"
           onClick={() => {
-            setIsProfileDropdownOpen(false);
-            setIsNotificationDropdownOpen(false);
+            setIsProfileMenuOpen(false);
+            setIsNotificationMenuOpen(false);
           }}
         />
       )}

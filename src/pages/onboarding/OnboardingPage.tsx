@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle, ChevronRight } from 'lucide-react';
+import { FreelanceFirestoreService } from '../../lib/firestoreService';
 import OTPVerificationStep from './steps/OTPVerificationStep';
 import FreelancerProfileStep from './steps/freelancer/FreelancerProfileStep';
 import FreelancerSkillsStep from './steps/freelancer/FreelancerSkillsStep';
@@ -81,9 +82,25 @@ const OnboardingPage: React.FC = () => {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [user.accountType]);
 
-  // Mock function to verify email
-  const verifyEmail = () => {
-    setUser((prev) => ({ ...prev, emailVerified: true }));
+  // Function to verify email
+  const verifyEmail = async () => {
+    try {
+      // Update local state
+      setUser((prev) => ({ ...prev, emailVerified: true }));
+      
+      // Update Firebase document
+      const userId = localStorage.getItem('userId');
+      if (userId) {
+        await FreelanceFirestoreService.updateUserProfile(userId, {
+          emailVerified: true,
+          emailVerifiedAt: new Date()
+        });
+        console.log('Email verification status updated in Firebase');
+      }
+    } catch (error) {
+      console.error('Error updating email verification status:', error);
+      // Don't throw error to avoid breaking the flow, but log it
+    }
   };
 
   // Handle next step transition

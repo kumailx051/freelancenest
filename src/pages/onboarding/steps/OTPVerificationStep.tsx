@@ -5,7 +5,7 @@ interface OTPVerificationStepProps {
   user: any;
   onNext: (data?: any) => void;
   onBack: () => void;
-  onVerifyEmail: () => void;
+  onVerifyEmail: () => Promise<void>;
 }
 
 const OTPVerificationStep: React.FC<OTPVerificationStepProps> = ({ 
@@ -96,7 +96,7 @@ const OTPVerificationStep: React.FC<OTPVerificationStepProps> = ({
 
       if (result.success) {
         setSuccess('Email verified successfully!');
-        onVerifyEmail();
+        await onVerifyEmail();
         setTimeout(() => {
           onNext();
         }, 1500);

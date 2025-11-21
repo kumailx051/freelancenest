@@ -1,8 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Upload, X, FileText, CheckCircle, AlertCircle } from 'lucide-react';
+import { FirestoreService } from '../../lib/firestoreService';
+import { ImageUploadService } from '../../lib/imageUpload';
+import { useAuth } from '../../contexts/AuthContext';
 
 const PostJobPage: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 6;
+  const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -13,7 +25,9 @@ const PostJobPage: React.FC = () => {
     timeline: '',
     experience: '',
     projectType: '',
-    attachments: [] as string[]
+    attachments: [] as string[],
+    clientId: currentUser?.uid || '',
+    clientEmail: currentUser?.email || ''
   });
 
   const categories = [
@@ -28,25 +42,147 @@ const PostJobPage: React.FC = () => {
     'Digital Marketing', 'Social Media', 'Video Editing', 'Animation'
   ];
 
-  const handleNext = () => {
+  // Auto-save functionality
+  const saveToFirebase = async (data = formData) => {
+    if (!currentUser) return;
+    
+    setSaving(true);
+    setError(null);
+    
+    try {
+      if (jobId) {
+        // Update existing job
+        await FirestoreService.updateClientJob(jobId, data);
+      } else {
+        // Create new job
+        const newJobId = await FirestoreService.createClientJob({
+          ...data,
+          clientId: currentUser.uid,
+          clientEmail: currentUser.email
+        });
+        setJobId(newJobId);
+      }
+    } catch (error) {
+      console.error('Error saving job:', error);
+      setError('Failed to save job data. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Auto-save when form data changes
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (formData.title || formData.description || formData.category) {
+        saveToFirebase();
+      }
+    }, 2000); // Save after 2 seconds of no changes
+
+    return () => clearTimeout(timeoutId);
+  }, [formData]);
+
+  const handleNext = async () => {
     if (currentStep < totalSteps) {
+      await saveToFirebase();
       setCurrentStep(currentStep + 1);
     }
   };
 
-  const handlePrev = () => {
+  const handlePrev = async () => {
     if (currentStep > 1) {
+      await saveToFirebase();
       setCurrentStep(currentStep - 1);
     }
   };
 
   const handleSkillToggle = (skill: string) => {
-    setFormData(prev => ({
-      ...prev,
-      skills: prev.skills.includes(skill)
-        ? prev.skills.filter(s => s !== skill)
-        : [...prev.skills, skill]
-    }));
+    const updatedSkills = formData.skills.includes(skill)
+      ? formData.skills.filter(s => s !== skill)
+      : [...formData.skills, skill];
+    
+    const newFormData = {
+      ...formData,
+      skills: updatedSkills
+    };
+    
+    setFormData(newFormData);
+  };
+
+  const updateFormData = (updates: Partial<typeof formData>) => {
+    const newFormData = { ...formData, ...updates };
+    setFormData(newFormData);
+  };
+
+  // Handle file upload
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const uploadPromises = Array.from(files).map(async (file) => {
+        // Validate file
+        if (file.size > 10 * 1024 * 1024) { // 10MB limit
+          throw new Error(`File ${file.name} is too large. Maximum size is 10MB.`);
+        }
+
+        // Upload to ImageBB
+        const result = await ImageUploadService.uploadToImageBB(file);
+        return result.url;
+      });
+
+      const uploadedUrls = await Promise.all(uploadPromises);
+      const newAttachments = [...formData.attachments, ...uploadedUrls];
+      
+      updateFormData({ attachments: newAttachments });
+
+    } catch (error: any) {
+      console.error('Error uploading files:', error);
+      setError(error.message || 'Failed to upload files. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const removeAttachment = (urlToRemove: string) => {
+    const newAttachments = formData.attachments.filter(url => url !== urlToRemove);
+    updateFormData({ attachments: newAttachments });
+  };
+
+  const handlePublish = async () => {
+    if (!jobId) {
+      setError('Please save your job first before publishing.');
+      return;
+    }
+
+    // Validate required fields
+    if (!formData.title || !formData.description || !formData.category) {
+      setError('Please fill in all required fields before publishing.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Final save before publishing
+      await saveToFirebase();
+      
+      // Publish the job
+      await FirestoreService.publishClientJob(jobId);
+      
+      // Navigate to client dashboard or job listing
+      navigate('/client/my-jobs', { 
+        state: { message: 'Job posted successfully!' }
+      });
+      
+    } catch (error) {
+      console.error('Error publishing job:', error);
+      setError('Failed to publish job. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -85,6 +221,30 @@ const PostJobPage: React.FC = () => {
       <section className="py-16">
         <div className="section-container">
           <div className="max-w-4xl mx-auto">
+            {/* Auto-save indicator */}
+            <div className="mb-4 flex justify-between items-center">
+              <div className="flex items-center space-x-2">
+                {saving && (
+                  <div className="flex items-center text-sm text-[#FF6B00]">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#FF6B00] mr-2"></div>
+                    Saving...
+                  </div>
+                )}
+                {!saving && jobId && (
+                  <div className="flex items-center text-sm text-green-600">
+                    <CheckCircle className="w-4 h-4 mr-1" />
+                    Saved
+                  </div>
+                )}
+              </div>
+              {error && (
+                <div className="flex items-center text-sm text-red-600">
+                  <AlertCircle className="w-4 h-4 mr-1" />
+                  {error}
+                </div>
+              )}
+            </div>
+
             <div className="bg-white rounded-xl shadow-sm p-8 border border-[#ffeee3]">
               
               {/* Step 1: Job Overview */}
@@ -102,7 +262,7 @@ const PostJobPage: React.FC = () => {
                       className="w-full px-4 py-3 border border-[#ffeee3] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
                       placeholder="e.g. Build responsive WordPress website with custom theme"
                       value={formData.title}
-                      onChange={(e) => setFormData({...formData, title: e.target.value})}
+                      onChange={(e) => updateFormData({ title: e.target.value })}
                     />
                   </div>
 
@@ -132,7 +292,7 @@ const PostJobPage: React.FC = () => {
                       className="w-full px-4 py-3 border border-[#ffeee3] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
                       placeholder="Describe your project in detail. What are you looking to accomplish? What does success look like?"
                       value={formData.description}
-                      onChange={(e) => setFormData({...formData, description: e.target.value})}
+                      onChange={(e) => updateFormData({ description: e.target.value })}
                     />
                   </div>
 
@@ -143,13 +303,74 @@ const PostJobPage: React.FC = () => {
                     <select
                       className="w-full px-4 py-3 border border-[#ffeee3] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
                       value={formData.category}
-                      onChange={(e) => setFormData({...formData, category: e.target.value})}
+                      onChange={(e) => updateFormData({ category: e.target.value })}
                     >
                       <option value="">Select a category</option>
                       {categories.map(category => (
                         <option key={category} value={category}>{category}</option>
                       ))}
                     </select>
+                  </div>
+
+                  {/* File Uploads */}
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-[#2E2E2E] mb-2">
+                      Project Files (Optional)
+                    </label>
+                    <p className="text-sm text-[#2E2E2E]/60 mb-4">
+                      Upload any relevant files, images, or documents to help freelancers understand your project better.
+                    </p>
+                    
+                    <div className="border-2 border-dashed border-[#ffeee3] rounded-lg p-6 text-center">
+                      <Upload className="w-12 h-12 text-[#FF6B00] mx-auto mb-4" />
+                      <p className="text-[#2E2E2E] mb-2">
+                        Drop files here or <label className="text-[#FF6B00] cursor-pointer hover:underline">
+                          browse
+                          <input
+                            type="file"
+                            multiple
+                            accept="image/*,.pdf,.doc,.docx,.txt"
+                            className="hidden"
+                            onChange={(e) => handleFileUpload(e.target.files)}
+                            disabled={loading}
+                          />
+                        </label>
+                      </p>
+                      <p className="text-sm text-[#2E2E2E]/60">
+                        Supported formats: Images, PDF, DOC, DOCX, TXT (Max 10MB each)
+                      </p>
+                    </div>
+
+                    {/* Display uploaded files */}
+                    {formData.attachments.length > 0 && (
+                      <div className="mt-4 space-y-2">
+                        <p className="text-sm font-medium text-[#2E2E2E] mb-2">Uploaded Files:</p>
+                        {formData.attachments.map((url, index) => (
+                          <div key={index} className="flex items-center justify-between p-3 bg-[#ffeee3]/30 rounded-lg">
+                            <div className="flex items-center space-x-3">
+                              <FileText className="w-5 h-5 text-[#FF6B00]" />
+                              <span className="text-sm text-[#2E2E2E]">
+                                File {index + 1}
+                              </span>
+                              <a 
+                                href={url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-sm text-[#FF6B00] hover:underline"
+                              >
+                                View
+                              </a>
+                            </div>
+                            <button
+                              onClick={() => removeAttachment(url)}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -201,7 +422,7 @@ const PostJobPage: React.FC = () => {
                     <label className="block text-sm font-medium text-[#2E2E2E] mb-4">How do you want to pay?</label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <button
-                        onClick={() => setFormData({...formData, budgetType: 'fixed'})}
+                        onClick={() => updateFormData({ budgetType: 'fixed' })}
                         className={`p-6 rounded-lg border-2 text-left transition-colors ${
                           formData.budgetType === 'fixed'
                             ? 'border-[#FF6B00] bg-[#ffeee3]/30'
@@ -213,7 +434,7 @@ const PostJobPage: React.FC = () => {
                       </button>
                       
                       <button
-                        onClick={() => setFormData({...formData, budgetType: 'hourly'})}
+                        onClick={() => updateFormData({ budgetType: 'hourly' })}
                         className={`p-6 rounded-lg border-2 text-left transition-colors ${
                           formData.budgetType === 'hourly'
                             ? 'border-[#FF6B00] bg-[#ffeee3]/30'
@@ -235,7 +456,7 @@ const PostJobPage: React.FC = () => {
                       className="w-full px-4 py-3 border border-[#ffeee3] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
                       placeholder={formData.budgetType === 'fixed' ? 'e.g. $500 - $1000' : 'e.g. $15 - $25/hr'}
                       value={formData.budget}
-                      onChange={(e) => setFormData({...formData, budget: e.target.value})}
+                      onChange={(e) => updateFormData({ budget: e.target.value })}
                     />
                   </div>
                 </div>
@@ -251,7 +472,7 @@ const PostJobPage: React.FC = () => {
                     {['Less than 1 week', '1-2 weeks', '2-4 weeks', '1-2 months', '2-6 months', 'More than 6 months'].map(option => (
                       <button
                         key={option}
-                        onClick={() => setFormData({...formData, timeline: option})}
+                        onClick={() => updateFormData({ timeline: option })}
                         className={`p-4 rounded-lg border-2 text-left transition-colors ${
                           formData.timeline === option
                             ? 'border-[#FF6B00] bg-[#ffeee3]/30'
@@ -275,7 +496,7 @@ const PostJobPage: React.FC = () => {
                       ].map(option => (
                         <button
                           key={option.value}
-                          onClick={() => setFormData({...formData, experience: option.value})}
+                          onClick={() => updateFormData({ experience: option.value })}
                           className={`w-full p-4 rounded-lg border-2 text-left transition-colors ${
                             formData.experience === option.value
                               ? 'border-[#FF6B00] bg-[#ffeee3]/30'
@@ -330,6 +551,37 @@ const PostJobPage: React.FC = () => {
                         </div>
                       </div>
                     )}
+
+                    <div className="border border-[#ffeee3] rounded-lg p-6">
+                      <h3 className="font-semibold text-[#2E2E2E] mb-2">Category</h3>
+                      <p className="text-[#2E2E2E]/80">{formData.category || 'No category selected'}</p>
+                    </div>
+
+                    <div className="border border-[#ffeee3] rounded-lg p-6">
+                      <h3 className="font-semibold text-[#2E2E2E] mb-2">Experience Level</h3>
+                      <p className="text-[#2E2E2E]/80 capitalize">{formData.experience || 'No experience level set'}</p>
+                    </div>
+
+                    {formData.attachments.length > 0 && (
+                      <div className="border border-[#ffeee3] rounded-lg p-6">
+                        <h3 className="font-semibold text-[#2E2E2E] mb-2">Project Files</h3>
+                        <div className="space-y-2">
+                          {formData.attachments.map((url, index) => (
+                            <div key={index} className="flex items-center space-x-3">
+                              <FileText className="w-4 h-4 text-[#FF6B00]" />
+                              <a 
+                                href={url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-sm text-[#FF6B00] hover:underline"
+                              >
+                                File {index + 1}
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -353,13 +605,25 @@ const PostJobPage: React.FC = () => {
                 </div>
                 
                 {currentStep === totalSteps ? (
-                  <button className="px-8 py-3 bg-[#FF6B00] hover:bg-[#FF9F45] text-white rounded-lg font-medium transition-colors">
-                    Publish Job Post
+                  <button 
+                    onClick={handlePublish}
+                    disabled={loading || !formData.title || !formData.description || !formData.category}
+                    className="px-8 py-3 bg-[#FF6B00] hover:bg-[#FF9F45] text-white rounded-lg font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Publishing...
+                      </>
+                    ) : (
+                      'Publish Job Post'
+                    )}
                   </button>
                 ) : (
                   <button
                     onClick={handleNext}
-                    className="px-6 py-3 bg-[#FF6B00] hover:bg-[#FF9F45] text-white rounded-lg font-medium transition-colors"
+                    disabled={loading}
+                    className="px-6 py-3 bg-[#FF6B00] hover:bg-[#FF9F45] text-white rounded-lg font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >
                     Next
                   </button>

@@ -4,28 +4,29 @@ import { Link } from 'react-router-dom';
 const JobDetailsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('applications');
 
-  // Sample job data
+  // Mock data for demonstration
   const job = {
     id: '1',
-    title: 'E-commerce Website Development',
-    description: 'Looking for an experienced developer to build a modern e-commerce website with React and Node.js. The project includes user authentication, payment integration, inventory management, and admin dashboard.',
-    category: 'Web Development',
-    budget: '$2,500',
-    budgetType: 'fixed',
-    timeline: '2-4 weeks',
+    title: 'Senior React Developer Needed',
+    description: 'We are looking for an experienced React developer to help build our new web application. The ideal candidate should have strong experience with React, TypeScript, and modern web development practices.',
     status: 'Active',
     postedDate: '2 days ago',
-    proposalsCount: 12,
-    skills: ['React', 'Node.js', 'MongoDB', 'Stripe Integration', 'REST API'],
+    budget: '$5000',
+    budgetType: 'Fixed Price',
+    timeline: '2-3 months',
+    proposalsCount: 15,
+    category: 'Web Development',
     requirements: [
-      'Experience with React and Node.js',
-      'Previous e-commerce development experience',
-      'Knowledge of payment gateway integration',
-      'Portfolio showing similar projects'
+      'Minimum 5 years of experience with React',
+      'Strong knowledge of TypeScript',
+      'Experience with state management (Redux/Context API)',
+      'Familiarity with modern CSS frameworks',
+      'Good communication skills'
     ],
+    skills: ['React', 'TypeScript', 'Redux', 'Tailwind CSS', 'REST APIs'],
     attachments: [
-      { name: 'Requirements.pdf', size: '2.4 MB', type: 'pdf' },
-      { name: 'Wireframes.fig', size: '1.8 MB', type: 'figma' }
+      { name: 'Project Brief.pdf', size: '2.4 MB' },
+      { name: 'Design Mockups.fig', size: '5.1 MB' }
     ]
   };
 
@@ -33,55 +34,53 @@ const JobDetailsPage: React.FC = () => {
     {
       id: '1',
       freelancer: {
-        name: 'John Smith',
-        avatar: '/api/placeholder/50/50',
+        name: 'Sarah Johnson',
+        avatar: 'https://randomuser.me/api/portraits/women/1.jpg',
         rating: 4.9,
         reviews: 127,
-        location: 'United States',
+        location: 'San Francisco, CA',
         verified: true
       },
-      bid: '$2,500',
-      duration: '2 weeks',
-      coverLetter: 'I have 8 years of experience in React and Node.js development. I\'ve built several e-commerce platforms and can deliver exactly what you need.',
-      proposal: 'Detailed proposal with timeline and deliverables...',
+      bid: '$4800',
+      duration: '2 months',
       submittedDate: '1 day ago',
-      status: 'new'
+      status: 'shortlisted',
+      coverLetter: 'I have over 7 years of experience building React applications and would love to help with your project. I\'ve worked on similar projects in the past and can deliver high-quality code within your timeline.'
     },
     {
       id: '2',
       freelancer: {
-        name: 'Sarah Johnson',
-        avatar: '/api/placeholder/50/50',
+        name: 'Michael Chen',
+        avatar: 'https://randomuser.me/api/portraits/men/2.jpg',
         rating: 4.8,
-        reviews: 89,
-        location: 'Canada',
+        reviews: 93,
+        location: 'New York, NY',
         verified: true
       },
-      bid: '$2,200',
-      duration: '3 weeks',
-      coverLetter: 'I specialize in e-commerce development with React and have extensive experience with payment integrations.',
-      proposal: 'Comprehensive proposal with technical approach...',
+      bid: '$5200',
+      duration: '2.5 months',
       submittedDate: '2 days ago',
-      status: 'shortlisted'
+      status: 'new',
+      coverLetter: 'Hello! I\'m a senior React developer with extensive experience in TypeScript and modern web frameworks. I\'ve reviewed your requirements and I\'m confident I can deliver exactly what you need.'
     }
   ];
 
   const qaThreads = [
     {
       id: '1',
-      question: 'Do you need mobile responsive design?',
-      answer: 'Yes, the website should be fully responsive and work well on all devices.',
-      askedBy: 'Mike Brown',
-      askedDate: '1 day ago',
-      answeredDate: '1 day ago'
+      question: 'Will the project require mobile responsiveness?',
+      askedBy: 'John Doe',
+      askedDate: '3 days ago',
+      answer: 'Yes, the application needs to be fully responsive and work well on all devices.',
+      answeredDate: '2 days ago'
     },
     {
       id: '2',
-      question: 'What payment gateways do you want to integrate?',
-      answer: 'We need Stripe and PayPal integration for now.',
-      askedBy: 'Emma Davis',
-      askedDate: '2 days ago',
-      answeredDate: '2 days ago'
+      question: 'What is the expected timeline for the first milestone?',
+      askedBy: 'Jane Smith',
+      askedDate: '4 days ago',
+      answer: 'We expect the first milestone to be completed within 3 weeks of starting.',
+      answeredDate: '3 days ago'
     }
   ];
 

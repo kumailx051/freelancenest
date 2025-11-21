@@ -501,7 +501,7 @@ const ClientPaymentStep: React.FC<ClientPaymentStepProps> = ({
                       </div>
                       <div>
                         <div className="flex items-center">
-                          <span className="font-medium">â€¢â€¢â€¢â€¢  â€¢â€¢â€¢â€¢  â€¢â€¢â€¢â€¢  {method.last4}</span>
+                          <span className="font-medium">••••  ••••  ••••  {method.last4}</span>
                           {method.isDefault && (
                             <span className="ml-2 bg-[#ffeee3] text-[#2E2E2E] text-xs px-2 py-0.5 rounded-full">
                               Default
