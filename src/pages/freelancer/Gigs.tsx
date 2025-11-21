@@ -1,160 +1,122 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Package, Users, DollarSign, Star, Eye, Share2, Pause, Play, Edit, BarChart3, Copy } from 'lucide-react';
+import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import { useAuth } from '../../contexts/AuthContext';
+
+interface Gig {
+  id: string;
+  title: string;
+  category: string;
+  subcategory: string;
+  status: 'active' | 'paused' | 'draft' | 'under_review';
+  gallery: string[];
+  packages: {
+    basic: { price: string; delivery: string };
+    standard: { price: string; delivery: string };
+    premium: { price: string; delivery: string };
+  };
+  views: number;
+  orders: number;
+  rating: number;
+  createdAt: any;
+  updatedAt: any;
+  userId: string;
+}
 
 const Gigs = () => {
+  const { currentUser: user, loading: authLoading } = useAuth();
   const [selectedTab, setSelectedTab] = useState('all');
+  const [gigs, setGigs] = useState<Gig[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Sample gigs data with real images
-  const gigs = [
-    {
-      id: 1,
-      title: "I will create a professional responsive website design",
-      category: "Web Design",
-      subcategory: "Landing Pages",
-      status: "active",
-      images: [
-        "https://images.unsplash.com/photo-1467232004584-a241de8bcf5d?w=400&h=300&fit=crop&crop=center",
-        "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=400&h=300&fit=crop&crop=center"
-      ],
-      packages: {
-        basic: { price: 50, delivery: 3 },
-        standard: { price: 100, delivery: 5 },
-        premium: { price: 200, delivery: 7 }
-      },
-      stats: {
-        views: 1247,
-        orders: 23,
-        rating: 4.9,
-        reviews: 18
-      }
-    },
-    {
-      id: 2,
-      title: "I will design modern mobile app UI/UX with figma",
-      category: "UI/UX Design",
-      subcategory: "Mobile App Design",
-      status: "active",
-      images: [
-        "https://images.unsplash.com/photo-1551650975-87deedd944c3?w=400&h=300&fit=crop&crop=center",
-        "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=400&h=300&fit=crop&crop=center"
-      ],
-      packages: {
-        basic: { price: 75, delivery: 5 },
-        standard: { price: 150, delivery: 7 },
-        premium: { price: 300, delivery: 10 }
-      },
-      stats: {
-        views: 892,
-        orders: 15,
-        rating: 4.8,
-        reviews: 12
-      }
-    },
-    {
-      id: 3,
-      title: "I will develop custom react components and animations",
-      category: "Programming",
-      subcategory: "Frontend Development",
-      status: "paused",
-      images: [
-        "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=300&fit=crop&crop=center",
-        "https://images.unsplash.com/photo-1627398242454-45a1465c2479?w=400&h=300&fit=crop&crop=center"
-      ],
-      packages: {
-        basic: { price: 100, delivery: 7 },
-        standard: { price: 200, delivery: 10 },
-        premium: { price: 400, delivery: 14 }
-      },
-      stats: {
-        views: 634,
-        orders: 8,
-        rating: 5.0,
-        reviews: 6
-      }
-    },
-    {
-      id: 4,
-      title: "I will create engaging social media graphics and posts",
-      category: "Graphic Design",
-      subcategory: "Social Media Design",
-      status: "draft",
-      images: [
-        "https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=400&h=300&fit=crop&crop=center",
-        "https://images.unsplash.com/photo-1614935151651-0bea6508db6b?w=400&h=300&fit=crop&crop=center"
-      ],
-      packages: {
-        basic: { price: 25, delivery: 2 },
-        standard: { price: 50, delivery: 3 },
-        premium: { price: 100, delivery: 5 }
-      },
-      stats: {
-        views: 0,
-        orders: 0,
-        rating: 0,
-        reviews: 0
-      }
-    },
-    {
-      id: 5,
-      title: "I will write compelling copy for your website or marketing",
-      category: "Writing & Translation",
-      subcategory: "Copywriting",
-      status: "active",
-      images: [
-        "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=400&h=300&fit=crop&crop=center",
-        "https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&h=300&fit=crop&crop=center"
-      ],
-      packages: {
-        basic: { price: 40, delivery: 3 },
-        standard: { price: 80, delivery: 5 },
-        premium: { price: 160, delivery: 7 }
-      },
-      stats: {
-        views: 543,
-        orders: 12,
-        rating: 4.7,
-        reviews: 9
-      }
-    },
-    {
-      id: 6,
-      title: "I will create professional business presentations",
-      category: "Business",
-      subcategory: "Presentations",
-      status: "active",
-      images: [
-        "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400&h=300&fit=crop&crop=center",
-        "https://images.unsplash.com/photo-1551818255-e6e10975bc17?w=400&h=300&fit=crop&crop=center"
-      ],
-      packages: {
-        basic: { price: 60, delivery: 4 },
-        standard: { price: 120, delivery: 6 },
-        premium: { price: 240, delivery: 8 }
-      },
-      stats: {
-        views: 721,
-        orders: 19,
-        rating: 4.9,
-        reviews: 14
-      }
+
+
+  const fetchGigs = async () => {
+    if (!user?.uid) {
+      setIsLoading(false);
+      return;
     }
-  ];
 
-  const handleAction = (gigId: number, action: string) => {
+    try {
+      let querySnapshot;
+      try {
+        // Try with orderBy first
+        const gigsQuery = query(
+          collection(db, 'gigs'),
+          where('userId', '==', user.uid),
+          orderBy('createdAt', 'desc')
+        );
+        
+        querySnapshot = await getDocs(gigsQuery);
+      } catch (orderByError) {
+        // Fallback: query without orderBy in case index doesn't exist
+        const simpleQuery = query(
+          collection(db, 'gigs'),
+          where('userId', '==', user.uid)
+        );
+        
+        querySnapshot = await getDocs(simpleQuery);
+      }
+      
+      const gigsData: Gig[] = [];
+      
+      querySnapshot.forEach((doc) => {
+        const docData = doc.data();
+        gigsData.push({
+          id: doc.id,
+          ...docData
+        } as Gig);
+      });
+      
+      setGigs(gigsData);
+      
+    } catch (error) {
+      console.error('Error fetching gigs:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch gigs from Firebase
+  useEffect(() => {
+    const initiateFetch = () => {
+      // Wait for authentication to finish loading
+      if (authLoading) {
+        return;
+      }
+      
+      if (!user?.uid) {
+        setIsLoading(false);
+        return;
+      }
+
+      // Call the fetchGigs function
+      fetchGigs();
+    };
+
+    initiateFetch();
+  }, [user, authLoading]);
+
+  // Remove sample gigs data - now using real Firebase data
+
+
+  const handleAction = (gigId: string, action: string) => {
     console.log(`Action: ${action} on gig ${gigId}`);
     // Handle gig actions here
   };
+
+
 
   const filteredGigs = gigs.filter(gig => 
     selectedTab === 'all' || gig.status === selectedTab
   );
 
-  const totalEarnings = gigs.reduce((sum, gig) => 
-    sum + (gig.stats.orders * gig.packages.basic.price), 0
-  );
-
-  const totalOrders = gigs.reduce((sum, gig) => sum + gig.stats.orders, 0);
+  // For now, keeping these as placeholder values
+  const totalEarnings = 4695;
+  const totalOrders = 77;
+  const avgRating = 4.8;
 
   return (
     <div className="min-h-screen bg-gray-50 pt-20">
@@ -216,7 +178,7 @@ const Gigs = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-medium">Avg. Rating</p>
-                <p className="text-2xl font-bold text-gray-900">4.8</p>
+                <p className="text-2xl font-bold text-gray-900">{avgRating}</p>
               </div>
               <div className="bg-yellow-100 p-3 rounded-lg">
                 <Star className="w-6 h-6 text-yellow-600" />
@@ -249,25 +211,37 @@ const Gigs = () => {
           </div>
         </div>
 
-        {/* Gigs Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredGigs.map((gig) => (
-            <div key={gig.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow group">
-              {/* Gig Image */}
-              <div className="relative">
-                <img
-                  src={gig.images[0]}
-                  alt={gig.title}
-                  className="w-full h-48 object-cover"
-                />
-                <button
-                  onClick={() => handleAction(gig.id, 'share')}
-                  className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-sm hover:bg-gray-50 transition-colors"
-                >
-                  <Share2 className="w-4 h-4 text-gray-400" />
-                </button>
-                
-                {/* Status Badge */}
+        {/* Loading State */}
+        {isLoading ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B00]"></div>
+            <span className="ml-3 text-gray-600">Loading your gigs...</span>
+          </div>
+        ) : (
+          <>
+            {/* Gigs Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {filteredGigs.map((gig) => (
+                <div key={gig.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow group">
+                  {/* Gig Image */}
+                  <div className="relative">
+                    <Link to={`/freelancer/gigs/details/${gig.id}`}>
+                      <img
+                        src={gig.gallery && gig.gallery.length > 0 ? gig.gallery[0] : 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=300&fit=crop&crop=center'}
+                        alt={gig.title}
+                        className="w-full h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=300&fit=crop&crop=center';
+                        }}
+                      />
+                    </Link>
+                    <button
+                      onClick={() => handleAction(gig.id, 'share')}
+                      className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-sm hover:bg-gray-50 transition-colors"
+                    >
+                      <Share2 className="w-4 h-4 text-gray-400" />
+                    </button>                {/* Status Badge */}
                 <div className={`absolute top-3 left-3 px-2 py-1 rounded text-xs font-medium ${
                   gig.status === 'active' ? 'bg-green-100 text-green-800' :
                   gig.status === 'paused' ? 'bg-yellow-100 text-yellow-800' :
@@ -281,9 +255,11 @@ const Gigs = () => {
               {/* Gig Content */}
               <div className="p-4">
                 {/* Title */}
-                <h3 className="text-sm font-medium text-gray-900 mb-3 line-clamp-2 hover:text-[#FF6B00] transition-colors cursor-pointer">
-                  {gig.title}
-                </h3>
+                <Link to={`/freelancer/gigs/details/${gig.id}`}>
+                  <h3 className="text-sm font-medium text-gray-900 mb-3 line-clamp-2 hover:text-[#FF6B00] transition-colors cursor-pointer">
+                    {gig.title}
+                  </h3>
+                </Link>
 
                 {/* Category */}
                 <p className="text-xs text-gray-500 mb-3">{gig.category}</p>
@@ -293,21 +269,21 @@ const Gigs = () => {
                   <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1">
                       <Eye className="w-3 h-3" />
-                      {gig.stats.views}
+                      {gig.views || 0}
                     </span>
                     <span className="flex items-center gap-1">
                       <Package className="w-3 h-3" />
-                      {gig.stats.orders}
+                      {gig.orders || 0}
                     </span>
                   </div>
-                  {gig.stats.rating > 0 && (
+                  {gig.rating > 0 && (
                     <div className="flex items-center gap-1">
                       <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
                       <span className="text-sm font-medium text-gray-900">
-                        {gig.stats.rating}
+                        {gig.rating}
                       </span>
                       <span className="text-xs text-gray-500">
-                        ({gig.stats.reviews})
+                        (0)
                       </span>
                     </div>
                   )}
@@ -317,7 +293,7 @@ const Gigs = () => {
                 <div className="text-right">
                   <p className="text-sm text-gray-600">Starting at</p>
                   <p className="text-lg font-bold text-gray-900">
-                    ${gig.packages.basic.price}
+                    ${gig.packages?.basic?.price || '0'}
                   </p>
                 </div>
               </div>
@@ -325,13 +301,13 @@ const Gigs = () => {
               {/* Actions */}
               <div className="px-4 pb-4">
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => handleAction(gig.id, 'edit')}
+                  <Link
+                    to={`/freelancer/gigs/edit/${gig.id}`}
                     className="flex-1 bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-3 py-2 rounded text-sm font-medium transition-colors flex items-center justify-center gap-1"
                   >
                     <Edit className="w-3 h-3" />
                     Edit
-                  </button>
+                  </Link>
                   <button
                     onClick={() => handleAction(gig.id, 'analytics')}
                     className="border border-[#FF6B00] text-[#FF6B00] hover:bg-[#ffeee3] px-3 py-2 rounded text-sm font-medium transition-colors flex items-center justify-center gap-1"
@@ -369,12 +345,14 @@ const Gigs = () => {
                     Copy
                   </button>
                 </div>
-              </div>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </>
+        )}
 
-        {filteredGigs.length === 0 && (
+        {!isLoading && filteredGigs.length === 0 && (
           <div className="text-center py-12">
             <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No gigs found</h3>

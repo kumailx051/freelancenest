@@ -113,7 +113,9 @@ const SignupPage: React.FC = () => {
           updatedAt: new Date()
         };
         
+        console.log('Creating Google user profile with UID as document ID:', user.uid);
         await FreelanceFirestoreService.createUserProfile(user.uid, userProfileData);
+        console.log('Google user profile created successfully with document ID:', user.uid);
         
         // Send OTP for Google sign-in users too
         try {
@@ -208,7 +210,9 @@ const SignupPage: React.FC = () => {
       };
       
       // Save user profile to Firestore
+      console.log('Creating user profile with UID as document ID:', user.uid);
       await FreelanceFirestoreService.createUserProfile(user.uid, userProfileData);
+      console.log('User profile created successfully with document ID:', user.uid);
       
       // Send OTP to user's email
       try {

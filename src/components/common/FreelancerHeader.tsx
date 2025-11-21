@@ -10,7 +10,6 @@ import {
   Briefcase,
   Star,
   DollarSign,
-  BookOpen,
   Settings,
   LogOut,
   Menu,
@@ -24,7 +23,6 @@ const FreelancerHeader: React.FC = () => {
 
   const navigation = [
     { name: 'Dashboard', href: '/freelancer/dashboard', icon: Home },
-    { name: 'Find Work', href: '/freelancer/job-feed', icon: Search },
     { name: 'My Jobs', href: '/freelancer/orders', icon: Briefcase },
     { name: 'Proposals', href: '/freelancer/my-proposals', icon: Star },
     { name: 'Earnings', href: '/freelancer/earnings', icon: DollarSign },
@@ -33,7 +31,6 @@ const FreelancerHeader: React.FC = () => {
   const profileMenuItems = [
     { name: 'Profile', href: '/freelancer/profile', icon: User },
     { name: 'Portfolio', href: '/freelancer/portfolio', icon: Briefcase },
-    { name: 'Learning', href: '/freelancer/learning', icon: BookOpen },
     { name: 'Settings', href: '/freelancer/settings', icon: Settings },
     { name: 'Sign Out', href: '/login', icon: LogOut },
   ];
@@ -44,19 +41,17 @@ const FreelancerHeader: React.FC = () => {
     <header className="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
+          {/* Brand Name */}
           <div className="flex items-center">
             <Link to="/freelancer/dashboard" className="flex items-center">
-              <img
-                src="/src/assets/Logo/logo.png"
-                alt="FreelanceNest"
-                className="h-8 w-auto"
-              />
+              <span className="text-2xl font-bold text-[#FF6B00] tracking-tight">
+                FreelanceNest
+              </span>
             </Link>
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex space-x-8">
+          <nav className="hidden md:flex space-x-6">
             {navigation.map((item) => {
               const Icon = item.icon;
               return (
@@ -77,19 +72,7 @@ const FreelancerHeader: React.FC = () => {
           </nav>
 
           {/* Right side */}
-          <div className="flex items-center space-x-4">
-            {/* Search Bar */}
-            <div className="hidden lg:block relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                type="text"
-                placeholder="Search jobs..."
-                className="block w-80 pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-[#FF6B00] focus:border-[#FF6B00] text-sm"
-              />
-            </div>
-
+          <div className="flex items-center space-x-3">
             {/* Notifications */}
             <Link
               to="/freelancer/notifications"
@@ -178,19 +161,6 @@ const FreelancerHeader: React.FC = () => {
                   </Link>
                 );
               })}
-            </div>
-            {/* Mobile Search */}
-            <div className="px-4 py-3 border-t border-gray-200">
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search jobs..."
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-[#FF6B00] focus:border-[#FF6B00] text-sm"
-                />
-              </div>
             </div>
           </div>
         )}

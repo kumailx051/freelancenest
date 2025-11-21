@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   Plus,
   Edit,
@@ -220,10 +221,13 @@ const Portfolio: React.FC = () => {
               <Share2 className="w-4 h-4 mr-2" />
               Share Portfolio
             </button>
-            <button className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center">
+            <Link
+              to="/freelancer/portfolio/add"
+              className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center"
+            >
               <Plus className="w-4 h-4 mr-2" />
               Add Project
-            </button>
+            </Link>
           </div>
         </div>
 
@@ -424,9 +428,12 @@ const Portfolio: React.FC = () => {
                       {new Date(item.completedDate).toLocaleDateString()}
                     </span>
                     <div className="flex space-x-2">
-                      <button className="p-2 text-[#2E2E2E]/60 hover:text-[#FF6B00] hover:bg-[#ffeee3] rounded-lg transition-colors">
+                      <Link
+                        to={`/freelancer/portfolio/edit/${item.id}`}
+                        className="p-2 text-[#2E2E2E]/60 hover:text-[#FF6B00] hover:bg-[#ffeee3] rounded-lg transition-colors"
+                      >
                         <Edit className="w-4 h-4" />
-                      </button>
+                      </Link>
                       <button className="p-2 text-[#2E2E2E]/60 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -485,9 +492,12 @@ const Portfolio: React.FC = () => {
                             <Code className="w-4 h-4" />
                           </a>
                         )}
-                        <button className="p-2 text-[#2E2E2E]/60 hover:text-[#FF6B00] hover:bg-[#ffeee3] rounded-lg transition-colors">
+                        <Link
+                          to={`/freelancer/portfolio/edit/${item.id}`}
+                          className="p-2 text-[#2E2E2E]/60 hover:text-[#FF6B00] hover:bg-[#ffeee3] rounded-lg transition-colors"
+                        >
                           <Edit className="w-4 h-4" />
-                        </button>
+                        </Link>
                         <button className="p-2 text-[#2E2E2E]/60 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -547,10 +557,13 @@ const Portfolio: React.FC = () => {
                 : 'Start building your portfolio by adding your first project'
               }
             </p>
-            <button className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center mx-auto">
+            <Link
+              to="/freelancer/portfolio/add"
+              className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center mx-auto"
+            >
               <Plus className="w-5 h-5 mr-2" />
               Add Your First Project
-            </button>
+            </Link>
           </div>
         )}
       </div>

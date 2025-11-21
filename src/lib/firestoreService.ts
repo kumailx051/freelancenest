@@ -2,6 +2,7 @@ import {
   collection,
   doc,
   addDoc,
+  setDoc,
   getDoc,
   getDocs,
   updateDoc,
@@ -27,6 +28,21 @@ export class FirestoreService {
       return docRef.id;
     } catch (error) {
       console.error('Error creating document:', error);
+      throw error;
+    }
+  }
+
+  // Create a document with a specific ID
+  static async createWithId(collectionName: string, docId: string, data: DocumentData): Promise<void> {
+    try {
+      const docRef = doc(db, collectionName, docId);
+      await setDoc(docRef, {
+        ...data,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+    } catch (error) {
+      console.error('Error creating document with ID:', error);
       throw error;
     }
   }
@@ -138,15 +154,38 @@ export class FirestoreService {
 export class FreelanceFirestoreService extends FirestoreService {
   // User profile operations
   static async createUserProfile(userId: string, profileData: any) {
-    return this.create('users', { uid: userId, ...profileData });
+    // Use the user's UID as the document ID in the users collection
+    console.log('Creating user profile with document ID:', userId);
+    await this.createWithId('users', userId, { uid: userId, ...profileData });
+    console.log('User profile created successfully in Firestore with document ID:', userId);
+    return userId; // Return the document ID (which is the user ID)
   }
 
   static async getUserProfile(userId: string) {
-    return this.getWhere('users', 'uid', '==', userId);
+    // First try to get by document ID (which should be the user ID)
+    console.log('Looking for user profile with document ID:', userId);
+    const userDoc = await this.get('users', userId);
+    if (userDoc) {
+      console.log('Found user profile by document ID:', userId);
+      return [userDoc]; // Return as array to maintain compatibility
+    }
+    
+    // Fallback to querying by uid field for existing users
+    console.log('User not found by document ID, searching by uid field:', userId);
+    const userProfiles = await this.getWhere('users', 'uid', '==', userId);
+    console.log('Found user profiles by uid query:', userProfiles.length);
+    return userProfiles;
   }
 
   static async updateUserProfile(userId: string, updates: any) {
-    const userDocs = await this.getUserProfile(userId);
+    // Try to update using userId as document ID first
+    const userExists = await this.exists('users', userId);
+    if (userExists) {
+      return this.update('users', userId, updates);
+    }
+    
+    // Fallback to the old method for existing users with random document IDs
+    const userDocs = await this.getWhere('users', 'uid', '==', userId);
     if (userDocs.length > 0) {
       return this.update('users', userDocs[0].id, updates);
     }
@@ -195,5 +234,10 @@ export class FreelanceFirestoreService extends FirestoreService {
       return userProfiles[0].portfolio;
     }
     return [];
+  }
+
+  // Helper method to get user profile directly by document ID
+  static async getUserProfileById(userId: string) {
+    return this.get('users', userId);
   }
 }

@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, Facebook } from 'lucide-react';
 import { AuthService } from '../lib/authService';
 import { FreelanceFirestoreService } from '../lib/firestoreService';
@@ -9,6 +9,7 @@ import bgImage from '../assets/images/hero image.png';
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -48,8 +49,14 @@ const LoginPage: React.FC = () => {
           localStorage.removeItem('rememberedEmail');
         }
 
-        // Navigate based on account type
-        if (accountType === 'freelancer') {
+        // Get the redirect location from the route state or default to dashboard
+        const from = (location.state as any)?.from?.pathname;
+        
+        // Navigate based on redirect location or account type
+        if (from) {
+          // If user was trying to access a protected route, redirect them there
+          navigate(from, { replace: true });
+        } else if (accountType === 'freelancer') {
           navigate('/freelancer/dashboard');
         } else if (accountType === 'client') {
           navigate('/client/dashboard');
@@ -102,8 +109,14 @@ const LoginPage: React.FC = () => {
         const userProfile = userProfiles[0];
         const accountType = userProfile.accountType;
 
-        // Navigate based on account type
-        if (accountType === 'freelancer') {
+        // Get the redirect location from the route state or default to dashboard
+        const from = (location.state as any)?.from?.pathname;
+        
+        // Navigate based on redirect location or account type
+        if (from) {
+          // If user was trying to access a protected route, redirect them there
+          navigate(from, { replace: true });
+        } else if (accountType === 'freelancer') {
           navigate('/freelancer/dashboard');
         } else if (accountType === 'client') {
           navigate('/client/dashboard');

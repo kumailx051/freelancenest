@@ -95,10 +95,13 @@ import FreelancerMessages from './pages/freelancer/Messages'
 import FreelancerNotifications from './pages/freelancer/Notifications'
 import FreelancerSettings from './pages/freelancer/Settings'
 import AIMatches from './pages/freelancer/AIMatches'
-import LearningCertifications from './pages/freelancer/LearningCertifications'
+
 import FreelancerProjectWorkspace from './pages/freelancer/ProjectWorkspace'
 import ProposalComposer from './pages/freelancer/ProposalComposer'
 import Gigs from './pages/freelancer/Gigs'
+import CreateEditGig from './pages/freelancer/CreateEditGig'
+import GigDetails from './pages/freelancer/GigDetails'
+import AddProject from './pages/freelancer/AddProject'
 import Calendar from './pages/freelancer/Calendar'
 import Analytics from './pages/freelancer/Analytics'
 import TimeTracker from './pages/freelancer/TimeTracker'
@@ -109,6 +112,7 @@ import DisputeCenter from './pages/freelancer/DisputeCenter'
 import AppLayout from './components/common/AppLayout'
 import ClientLayout from './components/common/ClientLayout'
 import FreelancerLayout from './components/common/FreelancerLayout'
+import ProtectedRoute from './components/common/ProtectedRoute'
 
 function App() {
   return (
@@ -117,55 +121,64 @@ function App() {
       <Routes>
         {/* Client Routes with ClientLayout */}
         <Route path="/client/*" element={
-          <ClientLayout>
-            <Routes>
-              <Route path="dashboard" element={<ClientDashboard />} />
-              <Route path="post-job" element={<PostJobPage />} />
-              <Route path="my-jobs" element={<MyJobsPage />} />
-              <Route path="shortlist-compare" element={<ShortlistComparePage />} />
-              <Route path="candidate/:id" element={<CandidateProfilePage />} />
-              <Route path="job/:id" element={<JobDetailsPage />} />
-              <Route path="contract-setup" element={<ContractSetupPage />} />
-              <Route path="escrow-payments" element={<EscrowPaymentsPage />} />
-              <Route path="project-workspace/:id" element={<ProjectWorkspacePage />} />
-              <Route path="messages" element={<MessagesPage />} />
-              <Route path="meetings" element={<MeetingsPage />} />
-              <Route path="reviews-approvals" element={<ReviewsApprovalsPage />} />
-              <Route path="profile" element={<ClientProfilePage />} />
-              <Route path="settings" element={<ClientSettingsPage />} />
-              <Route path="invoices-tax" element={<InvoicesTaxCenterPage />} />
-            </Routes>
-          </ClientLayout>
+          <ProtectedRoute requiredRole="client">
+            <ClientLayout>
+              <Routes>
+                <Route path="dashboard" element={<ClientDashboard />} />
+                <Route path="post-job" element={<PostJobPage />} />
+                <Route path="my-jobs" element={<MyJobsPage />} />
+                <Route path="shortlist-compare" element={<ShortlistComparePage />} />
+                <Route path="candidate/:id" element={<CandidateProfilePage />} />
+                <Route path="job/:id" element={<JobDetailsPage />} />
+                <Route path="contract-setup" element={<ContractSetupPage />} />
+                <Route path="escrow-payments" element={<EscrowPaymentsPage />} />
+                <Route path="project-workspace/:id" element={<ProjectWorkspacePage />} />
+                <Route path="messages" element={<MessagesPage />} />
+                <Route path="meetings" element={<MeetingsPage />} />
+                <Route path="reviews-approvals" element={<ReviewsApprovalsPage />} />
+                <Route path="profile" element={<ClientProfilePage />} />
+                <Route path="settings" element={<ClientSettingsPage />} />
+                <Route path="invoices-tax" element={<InvoicesTaxCenterPage />} />
+              </Routes>
+            </ClientLayout>
+          </ProtectedRoute>
         } />
 
         {/* Freelancer Routes with FreelancerLayout */}
         <Route path="/freelancer/*" element={
-          <FreelancerLayout>
-            <Routes>
-              <Route path="dashboard" element={<FreelancerDashboard />} />
-              <Route path="job-feed" element={<JobFeed />} />
-              <Route path="job-details/:id" element={<FreelancerJobDetails />} />
-              <Route path="ai-matches" element={<AIMatches />} />
-              <Route path="my-proposals" element={<MyProposals />} />
-              <Route path="orders" element={<Orders />} />
-              <Route path="projects" element={<Orders />} />
-              <Route path="project-workspace/:id" element={<FreelancerProjectWorkspace />} />
-              <Route path="earnings" element={<Earnings />} />
-              <Route path="wallet" element={<Wallet />} />
-              <Route path="profile" element={<FreelancerProfile />} />
-              <Route path="portfolio" element={<Portfolio />} />
-              <Route path="gigs" element={<Gigs />} />
-              <Route path="messages" element={<FreelancerMessages />} />
-              <Route path="notifications" element={<FreelancerNotifications />} />
-              <Route path="calendar" element={<Calendar />} />
-              <Route path="analytics" element={<Analytics />} />
-              <Route path="time-tracker" element={<TimeTracker />} />
-              <Route path="learning" element={<LearningCertifications />} />
-              <Route path="settings" element={<FreelancerSettings />} />
-              <Route path="proposal-composer/:jobId" element={<ProposalComposer />} />
-              <Route path="dispute-center" element={<DisputeCenter />} />
-            </Routes>
-          </FreelancerLayout>
+          <ProtectedRoute requiredRole="freelancer">
+            <FreelancerLayout>
+              <Routes>
+                <Route path="dashboard" element={<FreelancerDashboard />} />
+                <Route path="job-feed" element={<JobFeed />} />
+                <Route path="job-details/:id" element={<FreelancerJobDetails />} />
+                <Route path="ai-matches" element={<AIMatches />} />
+                <Route path="my-proposals" element={<MyProposals />} />
+                <Route path="orders" element={<Orders />} />
+                <Route path="projects" element={<Orders />} />
+                <Route path="project-workspace/:id" element={<FreelancerProjectWorkspace />} />
+                <Route path="earnings" element={<Earnings />} />
+                <Route path="wallet" element={<Wallet />} />
+                <Route path="profile" element={<FreelancerProfile />} />
+                <Route path="portfolio" element={<Portfolio />} />
+                <Route path="portfolio/add" element={<AddProject />} />
+                <Route path="portfolio/edit/:id" element={<AddProject />} />
+                <Route path="gigs" element={<Gigs />} />
+                <Route path="gigs/create" element={<CreateEditGig />} />
+                <Route path="gigs/edit/:id" element={<CreateEditGig />} />
+                <Route path="gigs/details/:id" element={<GigDetails />} />
+                <Route path="messages" element={<FreelancerMessages />} />
+                <Route path="notifications" element={<FreelancerNotifications />} />
+                <Route path="calendar" element={<Calendar />} />
+                <Route path="analytics" element={<Analytics />} />
+                <Route path="time-tracker" element={<TimeTracker />} />
+
+                <Route path="settings" element={<FreelancerSettings />} />
+                <Route path="proposal-composer/:jobId" element={<ProposalComposer />} />
+                <Route path="dispute-center" element={<DisputeCenter />} />
+              </Routes>
+            </FreelancerLayout>
+          </ProtectedRoute>
         } />
 
         {/* General Routes with AppLayout */}
@@ -184,7 +197,11 @@ function App() {
               <Route path="/watch-demo" element={<WatchDemoPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignupPage />} />
-              <Route path="/onboarding" element={<OnboardingPage />} />
+              <Route path="/onboarding" element={
+                <ProtectedRoute>
+                  <OnboardingPage />
+                </ProtectedRoute>
+              } />
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/firebase-test" element={<FirebaseTestPage />} />
               

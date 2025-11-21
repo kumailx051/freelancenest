@@ -374,9 +374,9 @@ const Profile: React.FC = () => {
 
           {/* Profile Info */}
           <div className="px-6 pb-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-end space-y-4 sm:space-y-0 sm:space-x-6 -mt-16">
-              {/* Avatar */}
-              <div className="relative">
+            {/* Avatar Section */}
+            <div className="flex justify-center lg:justify-start -mt-16 mb-6">
+              <div className="relative flex-shrink-0">
                 {profile.avatar ? (
                   <img
                     src={profile.avatar}
@@ -426,41 +426,42 @@ const Profile: React.FC = () => {
                 )}
               </div>
               {isEditing && (
-                <div className="mt-2 text-xs text-[#2E2E2E]/60">
+                <div className="text-center lg:text-left mt-2 text-xs text-[#2E2E2E]/60">
                   <p>• Max size: 5MB</p>
                   <p>• Formats: JPEG, PNG, WebP</p>
                   <p>• Images uploaded via ImageBB</p>
                 </div>
               )}
+            </div>
 
-              {/* Basic Info */}
-              <div className="flex-1 mt-4">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-                  <div>
-                    {isEditing ? (
-                      <div className="space-y-2">
-                        <input
-                          type="text"
-                          value={profile.name}
-                          onChange={(e) => setProfile(prev => ({ ...prev, name: e.target.value }))}
-                          className="text-3xl font-bold text-[#2E2E2E] bg-transparent border-b-2 border-gray-200 focus:border-[#FF6B00] outline-none mb-1"
-                          placeholder="Your full name"
-                        />
-                        <input
-                          type="text"
-                          value={profile.title}
-                          onChange={(e) => setProfile(prev => ({ ...prev, title: e.target.value }))}
-                          className="text-xl text-[#2E2E2E]/70 bg-transparent border-b-2 border-gray-200 focus:border-[#FF6B00] outline-none mb-2"
-                          placeholder="Your professional title"
-                        />
-                      </div>
-                    ) : (
-                      <div>
-                        <h1 className="text-3xl font-bold text-[#2E2E2E] mb-1">{profile.name || 'Freelancer Name'}</h1>
-                        <p className="text-xl text-[#2E2E2E]/70 mb-2">{profile.title || 'Professional Title'}</p>
-                      </div>
-                    )}
-                    <div className="flex items-center space-x-4 text-sm text-[#2E2E2E]/60">
+            {/* Profile Content */}
+            <div className="w-full">
+              <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between mb-6 space-y-4 lg:space-y-0">
+                <div className="text-center lg:text-left">
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        value={profile.name}
+                        onChange={(e) => setProfile(prev => ({ ...prev, name: e.target.value }))}
+                        className="text-3xl font-bold text-[#2E2E2E] bg-transparent border-b-2 border-gray-200 focus:border-[#FF6B00] outline-none mb-1 text-center lg:text-left w-full"
+                        placeholder="Your full name"
+                      />
+                      <input
+                        type="text"
+                        value={profile.title}
+                        onChange={(e) => setProfile(prev => ({ ...prev, title: e.target.value }))}
+                        className="text-xl text-[#2E2E2E]/70 bg-transparent border-b-2 border-gray-200 focus:border-[#FF6B00] outline-none mb-2 text-center lg:text-left w-full"
+                        placeholder="Your professional title"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <h1 className="text-3xl font-bold text-[#2E2E2E] mb-1">{profile.name || 'Freelancer Name'}</h1>
+                      <p className="text-xl text-[#2E2E2E]/70 mb-2">{profile.title || 'Professional Title'}</p>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-center lg:justify-start space-x-4 text-sm text-[#2E2E2E]/60">
                       {profile.location && (
                         <div className="flex items-center">
                           <MapPin className="w-4 h-4 mr-1" />
@@ -516,7 +517,7 @@ const Profile: React.FC = () => {
                     </div>
                   </div>
                   
-                  <div className="flex space-x-3 mt-4 sm:mt-0 relative z-20">
+                <div className="flex justify-center lg:justify-end space-x-3 mt-4 lg:mt-0 relative z-20 lg:flex-shrink-0">
                     <button
                       onClick={() => setIsEditing(!isEditing)}
                       className="border border-[#FF6B00] text-[#FF6B00] hover:bg-[#ffeee3] px-4 py-2 rounded-lg font-medium transition-colors flex items-center shadow-sm bg-white"
@@ -529,10 +530,10 @@ const Profile: React.FC = () => {
                       Settings
                     </button>
                   </div>
-                </div>
+              </div>
 
-                {/* Quick Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {/* Quick Stats */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
                   <div className="bg-[#ffeee3] p-3 rounded-lg text-center">
                     {isEditing ? (
                       <div className="flex items-center space-x-1">
@@ -562,7 +563,6 @@ const Profile: React.FC = () => {
                   <div className="bg-purple-50 p-3 rounded-lg text-center">
                     <div className="text-xl font-bold text-[#2E2E2E]">{profile.responseTime}</div>
                     <div className="text-sm text-[#2E2E2E]/60">Response Time</div>
-                  </div>
                 </div>
               </div>
             </div>

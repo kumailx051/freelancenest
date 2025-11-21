@@ -113,73 +113,99 @@ const FreelancerDashboard: React.FC = () => {
     }
   ];
 
-  const certifications = [
-    {
-      id: 1,
-      name: 'React Development',
-      progress: 100,
-      badge: 'Completed',
-      earnedDate: '2024-01-15'
-    },
-    {
-      id: 2,
-      name: 'Node.js Fundamentals',
-      progress: 75,
-      badge: 'In Progress',
-      earnedDate: null
-    },
-    {
-      id: 3,
-      name: 'AWS Cloud Practitioner',
-      progress: 0,
-      badge: 'Available',
-      earnedDate: null
-    }
-  ];
+
 
   return (
     <div className="min-h-screen bg-[#ffeee3]/30 pt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header Section */}
-        <div className="mb-8">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center space-x-4 mb-4 lg:mb-0">
-              <img 
-                src={freelancerData.avatar} 
-                alt={freelancerData.name}
-                className="w-16 h-16 rounded-full object-cover border-3 border-[#FF6B00]"
-              />
-              <div>
-                <h1 className="text-3xl font-bold text-[#2E2E2E]">
-                  Welcome back, {freelancerData.name}!
-                </h1>
-                <p className="text-[#2E2E2E]/70 text-lg">{freelancerData.title}</p>
-              </div>
-            </div>
-
-            {/* Availability Toggle */}
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <span className="text-[#2E2E2E] font-medium">Available for work:</span>
-                <button
-                  onClick={() => setAvailabilityStatus(!availabilityStatus)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    availabilityStatus ? 'bg-[#FF6B00]' : 'bg-gray-300'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      availabilityStatus ? 'translate-x-6' : 'translate-x-1'
-                    }`}
+        {/* Enhanced Header Section */}
+        <div className="mb-10">
+          <div className="bg-gradient-to-r from-white to-[#ffeee3]/50 rounded-2xl p-8 shadow-sm border border-gray-100/50">
+            <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6">
+              {/* Profile Section */}
+              <div className="flex items-center space-x-6">
+                <div className="relative">
+                  <img 
+                    src={freelancerData.avatar} 
+                    alt={freelancerData.name}
+                    className="w-20 h-20 rounded-full object-cover border-4 border-[#FF6B00] shadow-lg"
                   />
-                </button>
+                  <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-3 border-white shadow-sm ${
+                    availabilityStatus ? 'bg-green-500' : 'bg-gray-400'
+                  }`}></div>
+                </div>
+                <div className="space-y-2">
+                  <h1 className="text-4xl font-bold text-[#2E2E2E] leading-tight">
+                    Welcome back, <span className="text-[#FF6B00]">{freelancerData.name}</span>!
+                  </h1>
+                  <div className="flex items-center space-x-4">
+                    <p className="text-[#2E2E2E]/70 text-xl font-medium">{freelancerData.title}</p>
+                    <div className="flex items-center space-x-1">
+                      <Star className="w-5 h-5 text-yellow-400 fill-current" />
+                      <span className="text-[#2E2E2E]/70 font-semibold">{freelancerData.rating}</span>
+                      <span className="text-[#2E2E2E]/50 text-sm">({freelancerData.completedJobs} jobs)</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-6 text-sm text-[#2E2E2E]/60">
+                    <div className="flex items-center space-x-1">
+                      <Clock className="w-4 h-4" />
+                      <span>Responds in {freelancerData.responseTime}</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <Target className="w-4 h-4" />
+                      <span>{freelancerData.successRate}% success rate</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                availabilityStatus 
-                  ? 'bg-green-100 text-green-800' 
-                  : 'bg-gray-100 text-gray-600'
-              }`}>
-                {availabilityStatus ? 'Available' : 'Away'}
+
+              {/* Availability & Quick Actions */}
+              <div className="flex flex-col sm:flex-row xl:flex-col gap-4 xl:items-end">
+                {/* Availability Toggle */}
+                <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[#2E2E2E] font-semibold text-sm">Work Status</span>
+                    <div className={`px-3 py-1 rounded-full text-xs font-bold ${
+                      availabilityStatus 
+                        ? 'bg-green-100 text-green-700' 
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {availabilityStatus ? '🟢 AVAILABLE' : '⭕ AWAY'}
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <span className="text-[#2E2E2E]/70 text-sm">Available for work:</span>
+                    <button
+                      onClick={() => setAvailabilityStatus(!availabilityStatus)}
+                      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 shadow-inner ${
+                        availabilityStatus 
+                          ? 'bg-gradient-to-r from-[#FF6B00] to-[#ff8533]' 
+                          : 'bg-gradient-to-r from-gray-300 to-gray-400'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 ${
+                          availabilityStatus ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Quick Stats */}
+                <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 min-w-[200px]">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-[#FF6B00]">
+                      ${earningsData.thisMonth.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-[#2E2E2E]/60 mb-2">This Month</div>
+                    <div className="flex items-center justify-center space-x-1 text-xs">
+                      <TrendingUp className="w-3 h-3 text-green-500" />
+                      <span className="text-green-600 font-semibold">+{earningsData.growth}%</span>
+                      <span className="text-[#2E2E2E]/50">vs last month</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -431,52 +457,7 @@ const FreelancerDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Learning & Certifications */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-              <div className="p-6 border-b border-gray-100">
-                <h2 className="text-xl font-bold text-[#2E2E2E] flex items-center">
-                  <Award className="w-5 h-5 text-[#FF6B00] mr-2" />
-                  Learning Progress
-                </h2>
-              </div>
-              <div className="p-6">
-                <div className="space-y-4">
-                  {certifications.map((cert) => (
-                    <div key={cert.id} className="border border-gray-200 rounded-lg p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium text-[#2E2E2E] text-sm">{cert.name}</h4>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          cert.badge === 'Completed' ? 'bg-green-100 text-green-800' :
-                          cert.badge === 'In Progress' ? 'bg-blue-100 text-blue-800' :
-                          'bg-gray-100 text-gray-600'
-                        }`}>
-                          {cert.badge}
-                        </span>
-                      </div>
-                      {cert.progress > 0 && (
-                        <div className="mb-2">
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div 
-                              className="bg-[#FF6B00] h-2 rounded-full transition-all duration-300"
-                              style={{ width: `${cert.progress}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                      )}
-                      {cert.earnedDate && (
-                        <p className="text-[#2E2E2E]/60 text-xs">Earned: {cert.earnedDate}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <Link 
-                  to="/freelancer/learning"
-                  className="block w-full text-center bg-[#ffeee3] text-[#FF6B00] hover:bg-[#FF6B00] hover:text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors mt-4"
-                >
-                  Browse Courses
-                </Link>
-              </div>
-            </div>
+
           </div>
         </div>
       </div>
