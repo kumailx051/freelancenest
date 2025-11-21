@@ -12,58 +12,27 @@ import CommunityGuidelinesPage from './pages/CommunityGuidelinesPage'
 import ReportProblemPage from './pages/ReportProblemPage'
 import HowToHirePage from './pages/HowToHirePage'
 import TalkToSalesPage from './pages/TalkToSalesPage'
-import WatchDemoPage from './pages/WatchDemoPage'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import OnboardingPage from './pages/onboarding/OnboardingPage'
 import DashboardPage from './pages/DashboardPage'
 
 // Guidelines Pages
-import ConductGuidelinesPage from './pages/guidelines/ConductGuidelinesPage'
-import WorkQualityGuidelinesPage from './pages/guidelines/WorkQualityGuidelinesPage'
-import PaymentGuidelinesPage from './pages/guidelines/PaymentGuidelinesPage'
-import PrivacyGuidelinesPage from './pages/guidelines/PrivacyGuidelinesPage'
-import DisputeResolutionGuidelinesPage from './pages/guidelines/DisputeResolutionGuidelinesPage'
 
 // Freelancer Pages
 import HowToFindWorkPage from './pages/HowToFindWorkPage'
 import DirectContractsPage from './pages/DirectContractsPage'
-import FindFreelanceJobsPage from './pages/FindFreelanceJobsPage'
 import WaysToEarnPage from './pages/WaysToEarnPage'
 import FreelancerPlusPage from './pages/FreelancerPlusPage'
 
-// Ways To Earn Pages
-import ProjectBiddingPage from './pages/ways-to-earn/ProjectBiddingPage'
-import ServicePackagesPage from './pages/ways-to-earn/ServicePackagesPage'
-import ProjectCollaborationPage from './pages/ways-to-earn/ProjectCollaborationPage'
-import SkillCertificationPage from './pages/ways-to-earn/SkillCertificationPage'
-import ReferralProgramPage from './pages/ways-to-earn/ReferralProgramPage'
-import CommunityContributionsPage from './pages/ways-to-earn/CommunityContributionsPage'
-import EnterpriseFreelancingPage from './pages/ways-to-earn/EnterpriseFreelancingPage'
-import FreelancerCompetitionsPage from './pages/ways-to-earn/FreelancerCompetitionsPage'
-
 // Resource Pages
 import HelpCenterPage from './pages/resources/HelpCenterPage'
-import SuccessStoriesPage from './pages/resources/SuccessStoriesPage'
-import ReviewsPage from './pages/resources/ReviewsPage'
 import ResourcesPage from './pages/resources/ResourcesPage'
-import BlogPage from './pages/resources/BlogPage'
 import FirebaseTestPage from './pages/FirebaseTestPage'
-
-// Help Center Pages
-import GettingStartedHelpPage from './pages/resources/help/GettingStartedHelpPage'
-import AccountProfileHelpPage from './pages/resources/help/AccountProfileHelpPage'
-import PaymentsFinancesHelpPage from './pages/resources/help/PaymentsFinancesHelpPage'
-import PlatformSettingsHelpPage from './pages/resources/help/PlatformSettingsHelpPage'
-import SecurityPrivacyHelpPage from './pages/resources/help/SecurityPrivacyHelpPage'
-import ContactSupportHelpPage from './pages/resources/help/ContactSupportHelpPage'
 
 // Company Pages
 import AboutUsPage from './pages/company/AboutUsPage'
-import LeadershipPage from './pages/company/LeadershipPage'
-import InvestorRelationsPage from './pages/company/InvestorRelationsPage'
 import CareersPage from './pages/company/CareersPage'
-import PressPage from './pages/company/PressPage'
 
 // Client Pages
 import ClientDashboard from './pages/client/ClientDashboard'
@@ -218,7 +187,6 @@ function App() {
               <Route path="/report-problem" element={<ReportProblemPage />} />
               <Route path="/how-to-hire" element={<HowToHirePage />} />
               <Route path="/talk-to-sales" element={<TalkToSalesPage />} />
-              <Route path="/watch-demo" element={<WatchDemoPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignupPage />} />
               <Route path="/onboarding" element={
@@ -230,50 +198,20 @@ function App() {
               <Route path="/firebase-test" element={<FirebaseTestPage />} />
               
               {/* Guidelines Routes */}
-              <Route path="/guidelines/conduct" element={<ConductGuidelinesPage />} />
-              <Route path="/guidelines/work-quality" element={<WorkQualityGuidelinesPage />} />
-              <Route path="/guidelines/payment" element={<PaymentGuidelinesPage />} />
-              <Route path="/guidelines/privacy" element={<PrivacyGuidelinesPage />} />
-              <Route path="/guidelines/dispute-resolution" element={<DisputeResolutionGuidelinesPage />} />
               
               {/* Freelancer Routes */}
               <Route path="/how-to-find-work" element={<HowToFindWorkPage />} />
               <Route path="/direct-contracts" element={<DirectContractsPage />} />
-              <Route path="/find-freelance-jobs" element={<FindFreelanceJobsPage />} />
               <Route path="/ways-to-earn" element={<WaysToEarnPage />} />
               <Route path="/freelancer-plus" element={<FreelancerPlusPage />} />
               
-              {/* Ways To Earn Routes */}
-              <Route path="/ways-to-earn/project-bidding" element={<ProjectBiddingPage />} />
-              <Route path="/ways-to-earn/service-packages" element={<ServicePackagesPage />} />
-              <Route path="/ways-to-earn/project-collaboration" element={<ProjectCollaborationPage />} />
-              <Route path="/ways-to-earn/skill-certification" element={<SkillCertificationPage />} />
-              <Route path="/ways-to-earn/referral-program" element={<ReferralProgramPage />} />
-              <Route path="/ways-to-earn/community-contributions" element={<CommunityContributionsPage />} />
-              <Route path="/ways-to-earn/enterprise-freelancing" element={<EnterpriseFreelancingPage />} />
-              <Route path="/ways-to-earn/freelancer-competitions" element={<FreelancerCompetitionsPage />} />
-              
               {/* Resource Routes */}
               <Route path="/resources/help-center" element={<HelpCenterPage />} />
-              <Route path="/resources/success-stories" element={<SuccessStoriesPage />} />
-              <Route path="/resources/reviews" element={<ReviewsPage />} />
               <Route path="/resources/library" element={<ResourcesPage />} />
-              <Route path="/resources/blog" element={<BlogPage />} />
-              
-              {/* Help Center Detail Routes */}
-              <Route path="/resources/help/getting-started" element={<GettingStartedHelpPage />} />
-              <Route path="/resources/help/account-profile" element={<AccountProfileHelpPage />} />
-              <Route path="/resources/help/payments-finances" element={<PaymentsFinancesHelpPage />} />
-              <Route path="/resources/help/platform-settings" element={<PlatformSettingsHelpPage />} />
-              <Route path="/resources/help/security-privacy" element={<SecurityPrivacyHelpPage />} />
-              <Route path="/resources/help/contact-support" element={<ContactSupportHelpPage />} />
               
               {/* Company Routes */}
               <Route path="/company/about" element={<AboutUsPage />} />
-              <Route path="/company/leadership" element={<LeadershipPage />} />
-              <Route path="/company/investors" element={<InvestorRelationsPage />} />
               <Route path="/company/careers" element={<CareersPage />} />
-              <Route path="/company/press" element={<PressPage />} />
             </Routes>
           </AppLayout>
         } />
