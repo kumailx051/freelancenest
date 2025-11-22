@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   AlertTriangle, 
   Eye, 
@@ -9,28 +10,31 @@ import {
   MoreHorizontal,
   User
 } from 'lucide-react';
+import { FirestoreService } from '../../lib/firestoreService';
 
-interface Dispute {
+interface Report {
   id: string;
-  title: string;
-  description: string;
-  disputeType: 'payment' | 'quality' | 'deadline' | 'communication' | 'breach' | 'other';
-  status: 'open' | 'investigating' | 'resolved' | 'escalated' | 'closed';
-  priority: 'low' | 'medium' | 'high' | 'critical';
-  clientName: string;
-  freelancerName: string;
-  projectTitle: string;
-  disputeAmount: number;
-  createdAt: any;
-  lastUpdated: any;
-  assignedTo?: string;
-  resolution?: string;
-  evidence: string[];
+  category: string;
+  categoryLabel: string;
+  userName: string;
+  userEmail: string;
+  reportSubject: string;
+  reportDescription: string;
+  urlLink?: string | null;
+  attachments: string[];
+  referenceNumber: string;
+  status: 'submitted' | 'under_review' | 'resolved' | 'closed';
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  assignedTo?: string | null;
+  resolution?: string | null;
+  submittedAt: any;
+  updatedAt: any;
 }
 
 const DisputeResolution: React.FC = () => {
-  const [disputes, setDisputes] = useState<Dispute[]>([]);
-  const [filteredDisputes, setFilteredDisputes] = useState<Dispute[]>([]);
+  const navigate = useNavigate();
+  const [reports, setReports] = useState<Report[]>([]);
+  const [filteredReports, setFilteredReports] = useState<Report[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -39,174 +43,122 @@ const DisputeResolution: React.FC = () => {
   const [selectedDisputes, setSelectedDisputes] = useState<string[]>([]);
   const [showActions, setShowActions] = useState<string | null>(null);
 
-  const disputeTypes = [
-    { value: 'payment', label: 'Payment Issue' },
-    { value: 'quality', label: 'Work Quality' },
-    { value: 'deadline', label: 'Deadline Dispute' },
-    { value: 'communication', label: 'Communication' },
-    { value: 'breach', label: 'Contract Breach' },
-    { value: 'other', label: 'Other' }
+  const reportCategories = [
+    { value: 'user-behavior', label: 'User Behavior' },
+    { value: 'fraud', label: 'Fraud or Scam' },
+    { value: 'content', label: 'Inappropriate Content' },
+    { value: 'intellectual-property', label: 'Intellectual Property' },
+    { value: 'platform', label: 'Platform Issue' },
+    { value: 'other', label: 'Other Concern' }
   ];
 
   useEffect(() => {
-    fetchDisputes();
+    fetchReports();
   }, []);
 
   useEffect(() => {
-    filterDisputes();
-  }, [disputes, searchTerm, statusFilter, typeFilter, priorityFilter]);
+    filterReports();
+  }, [reports, searchTerm, statusFilter, typeFilter, priorityFilter]);
 
-  const fetchDisputes = async () => {
+  const fetchReports = async () => {
     try {
       setIsLoading(true);
       
-      // Mock data since we don't have a disputes collection yet
-      const mockDisputes: Dispute[] = [
-        {
-          id: '1',
-          title: 'Payment Not Released',
-          description: 'Client completed project but payment has not been released from escrow after 7 days.',
-          disputeType: 'payment',
-          status: 'open',
-          priority: 'high',
-          clientName: 'TechCorp Inc.',
-          freelancerName: 'Sarah Johnson',
-          projectTitle: 'E-commerce Website Development',
-          disputeAmount: 2500,
-          createdAt: new Date('2025-11-20'),
-          lastUpdated: new Date('2025-11-22'),
-          evidence: ['contract.pdf', 'completion_proof.png']
-        },
-        {
-          id: '2',
-          title: 'Work Quality Dispute',
-          description: 'Client claims the delivered work does not meet the agreed specifications.',
-          disputeType: 'quality',
-          status: 'investigating',
-          priority: 'medium',
-          clientName: 'StartupXYZ',
-          freelancerName: 'Mike Chen',
-          projectTitle: 'Mobile App UI Design',
-          disputeAmount: 1200,
-          createdAt: new Date('2025-11-18'),
-          lastUpdated: new Date('2025-11-21'),
-          assignedTo: 'Admin Team',
-          evidence: ['original_requirements.pdf', 'delivered_work.zip']
-        },
-        {
-          id: '3',
-          title: 'Deadline Extension Dispute',
-          description: 'Freelancer requesting deadline extension due to scope creep, client disagrees.',
-          disputeType: 'deadline',
-          status: 'escalated',
-          priority: 'medium',
-          clientName: 'Digital Solutions Ltd',
-          freelancerName: 'Emily Davis',
-          projectTitle: 'Data Analytics Dashboard',
-          disputeAmount: 3000,
-          createdAt: new Date('2025-11-15'),
-          lastUpdated: new Date('2025-11-20'),
-          assignedTo: 'Senior Mediator',
-          evidence: ['scope_changes.pdf', 'timeline_communication.png']
-        },
-        {
-          id: '4',
-          title: 'Communication Breakdown',
-          description: 'Both parties claim lack of communication from the other side.',
-          disputeType: 'communication',
-          status: 'resolved',
-          priority: 'low',
-          clientName: 'Creative Agency',
-          freelancerName: 'David Wilson',
-          projectTitle: 'Brand Identity Design',
-          disputeAmount: 800,
-          createdAt: new Date('2025-11-10'),
-          lastUpdated: new Date('2025-11-18'),
-          resolution: 'Mediation successful. Both parties agreed to improve communication protocols.',
-          evidence: ['chat_logs.pdf']
-        },
-        {
-          id: '5',
-          title: 'Contract Breach Allegation',
-          description: 'Client alleges freelancer violated exclusivity clause by working on similar project.',
-          disputeType: 'breach',
-          status: 'open',
-          priority: 'critical',
-          clientName: 'Innovation Corp',
-          freelancerName: 'Lisa Garcia',
-          projectTitle: 'SaaS Platform Development',
-          disputeAmount: 5000,
-          createdAt: new Date('2025-11-22'),
-          lastUpdated: new Date('2025-11-22'),
-          evidence: ['contract_agreement.pdf', 'evidence_screenshots.zip']
-        }
-      ];
+      // Fetch reports from Firestore
+      const reportsData = await FirestoreService.getMany('reports');
       
-      setDisputes(mockDisputes);
+      // Transform Firestore data to match our interface
+      const transformedReports: Report[] = reportsData.map(report => ({
+        ...report,
+        submittedAt: report.submittedAt?.toDate ? report.submittedAt.toDate() : new Date(report.submittedAt),
+        updatedAt: report.updatedAt?.toDate ? report.updatedAt.toDate() : new Date(report.updatedAt),
+      })) as Report[];
+      
+      setReports(transformedReports);
     } catch (error) {
-      console.error('Error fetching disputes:', error);
+      console.error('Error fetching reports:', error);
+      // Fallback to empty array on error
+      setReports([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const filterDisputes = () => {
-    let filtered = disputes;
+  const filterReports = () => {
+    let filtered = reports;
 
     // Search filter
     if (searchTerm) {
-      filtered = filtered.filter(dispute => 
-        dispute.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        dispute.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        dispute.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        dispute.freelancerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        dispute.projectTitle.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter(report => 
+        report.reportSubject.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        report.reportDescription.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        report.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        report.userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        report.categoryLabel.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     // Status filter
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(dispute => dispute.status === statusFilter);
+      filtered = filtered.filter(report => report.status === statusFilter);
     }
 
     // Type filter
     if (typeFilter !== 'all') {
-      filtered = filtered.filter(dispute => dispute.disputeType === typeFilter);
+      filtered = filtered.filter(report => report.category === typeFilter);
     }
 
     // Priority filter
     if (priorityFilter !== 'all') {
-      filtered = filtered.filter(dispute => dispute.priority === priorityFilter);
+      filtered = filtered.filter(report => report.priority === priorityFilter);
     }
 
-    setFilteredDisputes(filtered);
+    setFilteredReports(filtered);
   };
 
-  const handleDisputeAction = async (disputeId: string, action: 'investigate' | 'resolve' | 'escalate' | 'close') => {
+  const handleReportAction = async (reportId: string, action: 'investigate' | 'resolve' | 'escalate' | 'close') => {
     try {
-      const updatedDisputes = disputes.map(dispute => {
-        if (dispute.id === disputeId) {
-          switch (action) {
-            case 'investigate':
-              return { ...dispute, status: 'investigating' as const, assignedTo: 'Admin Team', lastUpdated: new Date() };
-            case 'resolve':
-              return { ...dispute, status: 'resolved' as const, lastUpdated: new Date() };
-            case 'escalate':
-              return { ...dispute, status: 'escalated' as const, priority: 'high' as const, lastUpdated: new Date() };
-            case 'close':
-              return { ...dispute, status: 'closed' as const, lastUpdated: new Date() };
-            default:
-              return dispute;
-          }
-        }
-        return dispute;
+      // Update in Firebase
+      const statusMap = {
+        'investigate': 'under_review' as const,
+        'resolve': 'resolved' as const,
+        'escalate': 'under_review' as const,
+        'close': 'closed' as const
+      };
+      
+      const priorityMap = {
+        'investigate': 'normal' as const,
+        'resolve': 'normal' as const,
+        'escalate': 'urgent' as const,
+        'close': 'normal' as const
+      };
+      
+      await FirestoreService.update('reports', reportId, {
+        status: statusMap[action],
+        priority: priorityMap[action],
+        assignedTo: action === 'investigate' || action === 'escalate' ? 'Admin Team' : null,
+        updatedAt: new Date()
       });
       
-      setDisputes(updatedDisputes);
+      // Update local state
+      const updatedReports = reports.map(report => {
+        if (report.id === reportId) {
+          return { 
+            ...report, 
+            status: statusMap[action], 
+            priority: priorityMap[action],
+            assignedTo: action === 'investigate' || action === 'escalate' ? 'Admin Team' : null,
+            updatedAt: new Date() 
+          };
+        }
+        return report;
+      });
+      
+      setReports(updatedReports);
       setShowActions(null);
     } catch (error) {
-      console.error('Error updating dispute:', error);
-      alert('Failed to update dispute. Please try again.');
+      console.error('Error updating report:', error);
+      alert('Failed to update report. Please try again.');
     }
   };
 
@@ -214,25 +166,47 @@ const DisputeResolution: React.FC = () => {
     if (selectedDisputes.length === 0) return;
     
     try {
-      const updatedDisputes = disputes.map(dispute => {
-        if (selectedDisputes.includes(dispute.id)) {
-          switch (action) {
-            case 'investigate':
-              return { ...dispute, status: 'investigating' as const, assignedTo: 'Admin Team', lastUpdated: new Date() };
-            case 'resolve':
-              return { ...dispute, status: 'resolved' as const, lastUpdated: new Date() };
-            case 'escalate':
-              return { ...dispute, status: 'escalated' as const, priority: 'high' as const, lastUpdated: new Date() };
-            case 'close':
-              return { ...dispute, status: 'closed' as const, lastUpdated: new Date() };
-            default:
-              return dispute;
-          }
+      const statusMap = {
+        'investigate': 'under_review' as const,
+        'resolve': 'resolved' as const,
+        'escalate': 'under_review' as const,
+        'close': 'closed' as const
+      };
+      
+      const priorityMap = {
+        'investigate': 'normal' as const,
+        'resolve': 'normal' as const,
+        'escalate': 'urgent' as const,
+        'close': 'normal' as const
+      };
+      
+      // Update in Firebase for each selected report
+      const updatePromises = selectedDisputes.map(reportId => 
+        FirestoreService.update('reports', reportId, {
+          status: statusMap[action],
+          priority: priorityMap[action],
+          assignedTo: action === 'investigate' || action === 'escalate' ? 'Admin Team' : null,
+          updatedAt: new Date()
+        })
+      );
+      
+      await Promise.all(updatePromises);
+      
+      // Update local state
+      const updatedReports = reports.map(report => {
+        if (selectedDisputes.includes(report.id)) {
+          return {
+            ...report,
+            status: statusMap[action],
+            priority: priorityMap[action],
+            assignedTo: action === 'investigate' || action === 'escalate' ? 'Admin Team' : null,
+            updatedAt: new Date()
+          };
         }
-        return dispute;
+        return report;
       });
       
-      setDisputes(updatedDisputes);
+      setReports(updatedReports);
       setSelectedDisputes([]);
     } catch (error) {
       console.error('Error performing bulk action:', error);
@@ -242,10 +216,9 @@ const DisputeResolution: React.FC = () => {
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      open: 'bg-[#ffeee3] text-[#FF6B00]',
-      investigating: 'bg-[#ffeee3] text-[#FF6B00]',
+      submitted: 'bg-[#ffeee3] text-[#FF6B00]',
+      under_review: 'bg-[#ffeee3] text-[#FF6B00]',
       resolved: 'bg-[#ffeee3] text-[#2E2E2E]',
-      escalated: 'bg-[#ffeee3] text-[#2E2E2E] font-semibold',
       closed: 'bg-[#ffeee3] text-[#2E2E2E]/70'
     };
     return styles[status as keyof typeof styles] || 'bg-[#ffeee3] text-[#2E2E2E]';
@@ -254,23 +227,27 @@ const DisputeResolution: React.FC = () => {
   const getPriorityBadge = (priority: string) => {
     const styles = {
       low: 'bg-[#ffeee3] text-[#2E2E2E]/70',
-      medium: 'bg-[#ffeee3] text-[#FF6B00]',
+      normal: 'bg-[#ffeee3] text-[#FF6B00]',
       high: 'bg-[#ffeee3] text-[#FF6B00] font-semibold',
-      critical: 'bg-[#ffeee3] text-[#2E2E2E] font-bold'
+      urgent: 'bg-[#ffeee3] text-[#2E2E2E] font-bold'
     };
     return styles[priority as keyof typeof styles] || 'bg-[#ffeee3] text-[#2E2E2E]';
   };
 
   const getTypeBadge = (type: string) => {
     const typeLabels = {
-      payment: 'Payment',
-      quality: 'Quality',
-      deadline: 'Deadline',
-      communication: 'Communication',
-      breach: 'Breach',
-      other: 'Other'
+      'user-behavior': 'User Behavior',
+      'fraud': 'Fraud',
+      'content': 'Content',
+      'intellectual-property': 'IP',
+      'platform': 'Platform',
+      'other': 'Other'
     };
     return typeLabels[type as keyof typeof typeLabels] || type;
+  };
+
+  const handleReportClick = (reportId: string) => {
+    navigate(`/admin/report-details/${reportId}`);
   };
 
   if (isLoading) {
@@ -292,18 +269,18 @@ const DisputeResolution: React.FC = () => {
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-[#2E2E2E]">Dispute Resolution</h1>
-            <p className="text-[#2E2E2E]/70">Manage and resolve platform disputes and complaints</p>
+            <h1 className="text-3xl font-bold text-[#2E2E2E]">Report Management</h1>
+            <p className="text-[#2E2E2E]/70">Manage and resolve platform reports and user complaints</p>
           </div>
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <div className="w-3 h-3 bg-[#FF6B00] rounded-full"></div>
               <span className="text-sm text-[#2E2E2E]/70">
-                {disputes.filter(d => d.status === 'open').length} Open
+                {reports.filter(r => r.status === 'submitted').length} Submitted
               </span>
             </div>
             <span className="text-sm text-[#2E2E2E]/50">
-              {filteredDisputes.length} of {disputes.length} disputes
+              {filteredReports.length} of {reports.length} reports
             </span>
           </div>
         </div>
@@ -316,9 +293,9 @@ const DisputeResolution: React.FC = () => {
                 <AlertTriangle className="h-8 w-8 text-[#FF6B00]" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-[#2E2E2E]/70">Open Disputes</p>
+                <p className="text-sm font-medium text-[#2E2E2E]/70">Submitted</p>
                 <p className="text-2xl font-semibold text-[#2E2E2E]">
-                  {disputes.filter(d => d.status === 'open').length}
+                  {reports.filter(r => r.status === 'submitted').length}
                 </p>
               </div>
             </div>
@@ -330,9 +307,9 @@ const DisputeResolution: React.FC = () => {
                 <Eye className="h-8 w-8 text-[#FF6B00]" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-[#2E2E2E]/70">Investigating</p>
+                <p className="text-sm font-medium text-[#2E2E2E]/70">Under Review</p>
                 <p className="text-2xl font-semibold text-[#2E2E2E]">
-                  {disputes.filter(d => d.status === 'investigating').length}
+                  {reports.filter(r => r.status === 'under_review').length}
                 </p>
               </div>
             </div>
@@ -346,7 +323,7 @@ const DisputeResolution: React.FC = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-[#2E2E2E]/70">Resolved</p>
                 <p className="text-2xl font-semibold text-[#2E2E2E]">
-                  {disputes.filter(d => d.status === 'resolved').length}
+                  {reports.filter(r => r.status === 'resolved').length}
                 </p>
               </div>
             </div>
@@ -358,9 +335,9 @@ const DisputeResolution: React.FC = () => {
                 <XCircle className="h-8 w-8 text-[#FF6B00]" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-[#2E2E2E]/70">Critical</p>
+                <p className="text-sm font-medium text-[#2E2E2E]/70">Urgent</p>
                 <p className="text-2xl font-semibold text-[#2E2E2E]">
-                  {disputes.filter(d => d.priority === 'critical').length}
+                  {reports.filter(r => r.priority === 'urgent').length}
                 </p>
               </div>
             </div>
@@ -376,7 +353,7 @@ const DisputeResolution: React.FC = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#FF6B00] w-5 h-5" />
                 <input
                   type="text"
-                  placeholder="Search disputes..."
+                  placeholder="Search reports..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 pr-4 py-2 w-full border border-[#ffeee3] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
@@ -393,10 +370,9 @@ const DisputeResolution: React.FC = () => {
                     className="border border-[#ffeee3] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]"
                   >
                     <option value="all">All Status</option>
-                    <option value="open">Open</option>
-                    <option value="investigating">Investigating</option>
+                    <option value="submitted">Submitted</option>
+                    <option value="under_review">Under Review</option>
                     <option value="resolved">Resolved</option>
-                    <option value="escalated">Escalated</option>
                     <option value="closed">Closed</option>
                   </select>
                 </div>
@@ -407,7 +383,7 @@ const DisputeResolution: React.FC = () => {
                   className="border border-[#ffeee3] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]"
                 >
                   <option value="all">All Types</option>
-                  {disputeTypes.map(type => (
+                  {reportCategories.map(type => (
                     <option key={type.value} value={type.value}>{type.label}</option>
                   ))}
                 </select>
@@ -419,9 +395,9 @@ const DisputeResolution: React.FC = () => {
                 >
                   <option value="all">All Priorities</option>
                   <option value="low">Low</option>
-                  <option value="medium">Medium</option>
+                  <option value="normal">Normal</option>
                   <option value="high">High</option>
-                  <option value="critical">Critical</option>
+                  <option value="urgent">Urgent</option>
                 </select>
               </div>
             </div>
@@ -431,7 +407,7 @@ const DisputeResolution: React.FC = () => {
               <div className="mt-4 p-4 bg-[#ffeee3] rounded-lg">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-[#2E2E2E]">
-                    {selectedDisputes.length} disputes selected
+                    {selectedDisputes.length} reports selected
                   </span>
                   <div className="flex space-x-2">
                     <button
@@ -474,10 +450,10 @@ const DisputeResolution: React.FC = () => {
                   <th className="w-12 px-4 py-4 text-left">
                     <input
                       type="checkbox"
-                      checked={selectedDisputes.length === filteredDisputes.length && filteredDisputes.length > 0}
+                      checked={selectedDisputes.length === filteredReports.length && filteredReports.length > 0}
                       onChange={(e) => {
                         if (e.target.checked) {
-                          setSelectedDisputes(filteredDisputes.map(dispute => dispute.id));
+                          setSelectedDisputes(filteredReports.map(report => report.id));
                         } else {
                           setSelectedDisputes([]);
                         }
@@ -486,10 +462,10 @@ const DisputeResolution: React.FC = () => {
                     />
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-[#2E2E2E] uppercase tracking-wider w-1/4">
-                    Dispute
+                    Report
                   </th>
                   <th className="px-4 py-4 text-center text-xs font-semibold text-[#2E2E2E] uppercase tracking-wider w-24">
-                    Type
+                    Category
                   </th>
                   <th className="px-4 py-4 text-center text-xs font-semibold text-[#2E2E2E] uppercase tracking-wider w-24">
                     Priority
@@ -498,13 +474,13 @@ const DisputeResolution: React.FC = () => {
                     Status
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-[#2E2E2E] uppercase tracking-wider w-48">
-                    Parties
+                    Reporter
                   </th>
-                  <th className="px-4 py-4 text-right text-xs font-semibold text-[#2E2E2E] uppercase tracking-wider w-32">
-                    Amount
+                  <th className="px-4 py-4 text-center text-xs font-semibold text-[#2E2E2E] uppercase tracking-wider w-32">
+                    Reference
                   </th>
                   <th className="px-4 py-4 text-center text-xs font-semibold text-[#2E2E2E] uppercase tracking-wider w-28">
-                    Created
+                    Submitted
                   </th>
                   <th className="px-4 py-4 text-center text-xs font-semibold text-[#2E2E2E] uppercase tracking-wider w-20">
                     Action
@@ -512,17 +488,17 @@ const DisputeResolution: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-[#ffeee3]">
-                {filteredDisputes.map((dispute) => (
-                  <tr key={dispute.id} className="hover:bg-[#ffeee3]/10 transition-colors">
-                    <td className="px-4 py-5 text-center">
+                {filteredReports.map((report) => (
+                  <tr key={report.id} className="hover:bg-[#ffeee3]/10 transition-colors cursor-pointer" onClick={() => handleReportClick(report.id)}>
+                    <td className="px-4 py-5 text-center" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
-                        checked={selectedDisputes.includes(dispute.id)}
+                        checked={selectedDisputes.includes(report.id)}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setSelectedDisputes([...selectedDisputes, dispute.id]);
+                            setSelectedDisputes([...selectedDisputes, report.id]);
                           } else {
-                            setSelectedDisputes(selectedDisputes.filter(id => id !== dispute.id));
+                            setSelectedDisputes(selectedDisputes.filter(id => id !== report.id));
                           }
                         }}
                         className="rounded border-[#ffeee3] text-[#FF6B00] focus:ring-[#FF6B00]"
@@ -530,27 +506,27 @@ const DisputeResolution: React.FC = () => {
                     </td>
                     <td className="px-6 py-5">
                       <div className="">
-                        <div className="text-sm font-semibold text-[#2E2E2E] leading-tight">
-                          {dispute.title}
+                        <div className="text-sm font-semibold text-[#2E2E2E] leading-tight hover:text-[#FF6B00] transition-colors">
+                          {report.reportSubject}
                         </div>
-                        <div className="text-xs text-[#2E2E2E]/60 mt-1 leading-tight">
-                          {dispute.projectTitle}
+                        <div className="text-xs text-[#2E2E2E]/60 mt-1 leading-tight line-clamp-2">
+                          {report.reportDescription}
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-5 text-center">
                       <span className="inline-flex px-3 py-1 text-xs font-medium rounded-full bg-[#ffeee3] text-[#FF6B00] border border-[#FF6B00]/20">
-                        {getTypeBadge(dispute.disputeType)}
+                        {getTypeBadge(report.category)}
                       </span>
                     </td>
                     <td className="px-4 py-5 text-center">
-                      <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full border ${getPriorityBadge(dispute.priority)} ${dispute.priority === 'critical' ? 'border-[#2E2E2E]/20' : 'border-[#FF6B00]/20'}`}>
-                        {dispute.priority}
+                      <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full border ${getPriorityBadge(report.priority)} ${report.priority === 'urgent' ? 'border-[#2E2E2E]/20' : 'border-[#FF6B00]/20'}`}>
+                        {report.priority}
                       </span>
                     </td>
                     <td className="px-4 py-5 text-center">
-                      <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full border ${getStatusBadge(dispute.status)} ${dispute.status === 'resolved' || dispute.status === 'closed' ? 'border-[#2E2E2E]/20' : 'border-[#FF6B00]/20'}`}>
-                        {dispute.status}
+                      <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full border ${getStatusBadge(report.status)} ${report.status === 'resolved' || report.status === 'closed' ? 'border-[#2E2E2E]/20' : 'border-[#FF6B00]/20'}`}>
+                        {report.status.replace('_', ' ')}
                       </span>
                     </td>
                     <td className="px-6 py-5">
@@ -559,68 +535,67 @@ const DisputeResolution: React.FC = () => {
                           <div className="w-5 h-5 bg-[#FF6B00]/20 rounded-full flex items-center justify-center mr-2">
                             <User className="w-3 h-3 text-[#FF6B00]" />
                           </div>
-                          <span className="font-medium">{dispute.clientName}</span>
+                          <span className="font-medium">{report.userName}</span>
                         </div>
-                        <div className="flex items-center text-sm text-[#2E2E2E]">
-                          <div className="w-5 h-5 bg-[#FF6B00]/20 rounded-full flex items-center justify-center mr-2">
-                            <User className="w-3 h-3 text-[#FF6B00]" />
-                          </div>
-                          <span className="font-medium">{dispute.freelancerName}</span>
+                        <div className="text-xs text-[#2E2E2E]/60 mt-1">
+                          {report.userEmail}
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-5 text-right">
-                      <div className="text-sm font-semibold text-[#2E2E2E]">
-                        ${dispute.disputeAmount.toLocaleString()}
-                      </div>
-                      <div className="text-xs text-[#2E2E2E]/50 mt-1">
-                        USD
                       </div>
                     </td>
                     <td className="px-4 py-5 text-center">
+                      <div className="text-sm font-semibold text-[#2E2E2E]">
+                        {report.referenceNumber}
+                      </div>
+                      {report.attachments && report.attachments.length > 0 && (
+                        <div className="text-xs text-[#2E2E2E]/50 mt-1">
+                          {report.attachments.length} files
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-5 text-center">
                       <div className="text-sm text-[#2E2E2E] font-medium">
-                        {dispute.createdAt.toLocaleDateString('en-US', { 
+                        {report.submittedAt.toLocaleDateString('en-US', { 
                           month: 'short', 
                           day: 'numeric',
                           year: 'numeric'
                         })}
                       </div>
                     </td>
-                    <td className="px-4 py-5 text-center">
+                    <td className="px-4 py-5 text-center" onClick={(e) => e.stopPropagation()}>
                       <div className="relative">
                         <button
-                          onClick={() => setShowActions(showActions === dispute.id ? null : dispute.id)}
+                          onClick={() => setShowActions(showActions === report.id ? null : report.id)}
                           className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#ffeee3] text-[#FF6B00] hover:bg-[#FF6B00] hover:text-white transition-colors"
                         >
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
                         
-                        {showActions === dispute.id && (
+                        {showActions === report.id && (
                           <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg z-10 border border-[#ffeee3] overflow-hidden">
                             <div className="py-1">
                               <button
-                                onClick={() => handleDisputeAction(dispute.id, 'investigate')}
+                                onClick={() => handleReportAction(report.id, 'investigate')}
                                 className="flex items-center w-full px-4 py-3 text-sm text-[#2E2E2E] hover:bg-[#ffeee3]/50 transition-colors"
                               >
                                 <Eye className="w-4 h-4 mr-3 text-[#FF6B00]" />
-                                Investigate
+                                Review
                               </button>
                               <button
-                                onClick={() => handleDisputeAction(dispute.id, 'resolve')}
+                                onClick={() => handleReportAction(report.id, 'resolve')}
                                 className="flex items-center w-full px-4 py-3 text-sm text-[#2E2E2E] hover:bg-[#ffeee3]/50 transition-colors"
                               >
                                 <CheckCircle className="w-4 h-4 mr-3 text-[#FF6B00]" />
                                 Resolve
                               </button>
                               <button
-                                onClick={() => handleDisputeAction(dispute.id, 'escalate')}
+                                onClick={() => handleReportAction(report.id, 'escalate')}
                                 className="flex items-center w-full px-4 py-3 text-sm text-[#2E2E2E] hover:bg-[#ffeee3]/50 transition-colors"
                               >
                                 <AlertTriangle className="w-4 h-4 mr-3 text-[#FF6B00]" />
                                 Escalate
                               </button>
                               <button
-                                onClick={() => handleDisputeAction(dispute.id, 'close')}
+                                onClick={() => handleReportAction(report.id, 'close')}
                                 className="flex items-center w-full px-4 py-3 text-sm text-[#2E2E2E] hover:bg-[#ffeee3]/50 transition-colors border-t border-[#ffeee3]"
                               >
                                 <XCircle className="w-4 h-4 mr-3 text-[#FF6B00]" />
@@ -637,10 +612,10 @@ const DisputeResolution: React.FC = () => {
             </table>
           </div>
 
-          {filteredDisputes.length === 0 && (
+          {filteredReports.length === 0 && (
             <div className="text-center py-12">
               <AlertTriangle className="mx-auto h-12 w-12 text-[#2E2E2E]/30" />
-              <h3 className="mt-2 text-sm font-medium text-[#2E2E2E]">No disputes found</h3>
+              <h3 className="mt-2 text-sm font-medium text-[#2E2E2E]">No reports found</h3>
               <p className="mt-1 text-sm text-[#2E2E2E]/50">
                 Try adjusting your search or filter criteria.
               </p>

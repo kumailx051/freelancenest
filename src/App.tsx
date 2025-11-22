@@ -6,12 +6,10 @@ import './index.css'
 import LandingPage from './pages/LandingPage'
 import TalentMarketplacePage from './pages/TalentMarketplacePage'
 import ProjectCatalogPage from './pages/ProjectCatalogPage'
-import EnterpriseSolutionsPage from './pages/EnterpriseSolutionsPage'
 import TrustAndSafetyPage from './pages/TrustAndSafetyPage'
 import CommunityGuidelinesPage from './pages/CommunityGuidelinesPage'
 import ReportProblemPage from './pages/ReportProblemPage'
 import HowToHirePage from './pages/HowToHirePage'
-import TalkToSalesPage from './pages/TalkToSalesPage'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import OnboardingPage from './pages/onboarding/OnboardingPage'
@@ -88,6 +86,7 @@ import AdminDashboard from './pages/admin/AdminDashboard'
 import UserManagement from './pages/admin/UserManagement'
 import ProjectOversight from './pages/admin/ProjectOversight'
 import DisputeResolution from './pages/admin/DisputeResolution'
+import ReportDetails from './pages/admin/ReportDetails'
 import AdminSettings from './pages/admin/AdminSettings'
 
 // Components
@@ -111,6 +110,7 @@ function App() {
                 <Route path="users" element={<UserManagement />} />
                 <Route path="projects" element={<ProjectOversight />} />
                 <Route path="dispute-resolution" element={<DisputeResolution />} />
+                <Route path="report-details/:reportId" element={<ReportDetails />} />
                 <Route path="settings" element={<AdminSettings />} />
               </Routes>
             </AdminLayout>
@@ -190,12 +190,10 @@ function App() {
               <Route path="/" element={<LandingPage />} />
               <Route path="/talent-marketplace" element={<TalentMarketplacePage />} />
               <Route path="/project-catalog" element={<ProjectCatalogPage />} />
-              <Route path="/enterprise" element={<EnterpriseSolutionsPage />} />
               <Route path="/trust-safety" element={<TrustAndSafetyPage />} />
               <Route path="/community-guidelines" element={<CommunityGuidelinesPage />} />
               <Route path="/report-problem" element={<ReportProblemPage />} />
               <Route path="/how-to-hire" element={<HowToHirePage />} />
-              <Route path="/talk-to-sales" element={<TalkToSalesPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignupPage />} />
               <Route path="/onboarding" element={

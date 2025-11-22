@@ -8,7 +8,6 @@ const Footer: React.FC = () => {
       { label: 'How to Hire', href: '/how-to-hire' },
       { label: 'Talent Marketplace', href: '/talent-marketplace' },
       { label: 'Project Catalog', href: '/project-catalog' },
-      { label: 'Enterprise Solutions', href: '/enterprise' },
       { label: 'Trust & Safety', href: '/trust-safety' }
     ],
     'For Freelancers': [

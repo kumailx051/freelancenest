@@ -1,5 +1,7 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { ReportService } from '../lib/reportService';
+import { ImageUploadService, ImageUploadError } from '../lib/imageUpload';
 
 // Report problem categories
 const reportCategories = [
@@ -65,6 +67,16 @@ const reportCategories = [
   }
 ];
 
+interface AttachmentFile {
+  id: string;
+  file: File;
+  preview: string;
+  uploading: boolean;
+  uploaded: boolean;
+  url?: string;
+  error?: string;
+}
+
 const ReportProblemPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>("");
@@ -72,29 +84,192 @@ const ReportProblemPage: React.FC = () => {
   const [reportSubject, setReportSubject] = useState<string>("");
   const [reportDescription, setReportDescription] = useState<string>("");
   const [urlLink, setUrlLink] = useState<string>("");
-  const [attachmentCount, setAttachmentCount] = useState<number>(0);
+  const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
+  const [reportId, setReportId] = useState<string>("");
+
+  // Cleanup preview URLs on unmount
+  useEffect(() => {
+    return () => {
+      attachments.forEach(att => ImageUploadService.revokePreviewUrl(att.preview));
+    };
+  }, [attachments]);
 
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategory(categoryId);
   };
 
-  const handleAttachment = () => {
-    if (attachmentCount < 5) {
-      setAttachmentCount(attachmentCount + 1);
-    }
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const newAttachments: AttachmentFile[] = [];
+    Array.from(files).forEach((file, index) => {
+      if (attachments.length + newAttachments.length < 5) {
+        const id = `${Date.now()}-${index}`;
+        const preview = ImageUploadService.createPreviewUrl(file);
+        newAttachments.push({
+          id,
+          file,
+          preview,
+          uploading: false,
+          uploaded: false
+        });
+      }
+    });
+
+    setAttachments(prev => [...prev, ...newAttachments]);
+    // Reset the input
+    e.target.value = '';
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const removeAttachment = (id: string) => {
+    setAttachments(prev => {
+      const attachment = prev.find(att => att.id === id);
+      if (attachment) {
+        ImageUploadService.revokePreviewUrl(attachment.preview);
+      }
+      return prev.filter(att => att.id !== id);
+    });
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const files = e.dataTransfer.files;
+    if (!files) return;
+
+    const newAttachments: AttachmentFile[] = [];
+    Array.from(files).forEach((file, index) => {
+      if (attachments.length + newAttachments.length < 5) {
+        // Check file type
+        if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+          const id = `${Date.now()}-${index}`;
+          const preview = ImageUploadService.createPreviewUrl(file);
+          newAttachments.push({
+            id,
+            file,
+            preview,
+            uploading: false,
+            uploaded: false
+          });
+        }
+      }
+    });
+
+    setAttachments(prev => [...prev, ...newAttachments]);
+  };
+
+  const uploadAttachments = async (): Promise<string[]> => {
+    const uploadedUrls: string[] = [];
+    
+    for (const attachment of attachments) {
+      if (attachment.uploaded && attachment.url) {
+        uploadedUrls.push(attachment.url);
+        continue;
+      }
+
+      try {
+        setAttachments(prev => prev.map(att => 
+          att.id === attachment.id ? { ...att, uploading: true, error: undefined } : att
+        ));
+
+        const result = await ImageUploadService.uploadToImageBB(attachment.file);
+        
+        setAttachments(prev => prev.map(att => 
+          att.id === attachment.id ? { 
+            ...att, 
+            uploading: false, 
+            uploaded: true, 
+            url: result.url 
+          } : att
+        ));
+
+        uploadedUrls.push(result.url);
+      } catch (error) {
+        const errorMessage = error instanceof ImageUploadError 
+          ? error.message 
+          : 'Failed to upload image';
+        
+        setAttachments(prev => prev.map(att => 
+          att.id === attachment.id ? { 
+            ...att, 
+            uploading: false, 
+            error: errorMessage 
+          } : att
+        ));
+      }
+    }
+
+    return uploadedUrls;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Basic form validation
+    if (!selectedCategory || !userName.trim() || !userEmail.trim() || !reportSubject.trim() || !reportDescription.trim()) {
+      alert('Please fill in all required fields.');
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(userEmail)) {
+      alert('Please enter a valid email address.');
+      return;
+    }
+
     setIsSubmitting(true);
     
-    // Simulate API call with a timeout
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      // Upload attachments first
+      const attachmentUrls = await uploadAttachments();
+      
+      // Check if any attachments failed to upload
+      const failedAttachments = attachments.filter(att => att.error && !att.uploaded);
+      if (failedAttachments.length > 0) {
+        const proceed = window.confirm(
+          `${failedAttachments.length} attachment(s) failed to upload. Do you want to submit the report without these attachments?`
+        );
+        if (!proceed) {
+          setIsSubmitting(false);
+          return;
+        }
+      }
+      
+      // Prepare report data
+      const reportData = {
+        category: selectedCategory!,
+        categoryLabel: reportCategories.find(cat => cat.id === selectedCategory)?.label || '',
+        userName: userName.trim(),
+        userEmail: userEmail.trim(),
+        reportSubject: reportSubject.trim(),
+        reportDescription: reportDescription.trim(),
+        urlLink: urlLink.trim() || null,
+        attachments: attachmentUrls
+      };
+
+      // Save to Firebase using ReportService
+      const result = await ReportService.submitReport(reportData);
+      setReportId(result.referenceNumber);
       setIsSubmitted(true);
-    }, 1500);
+      
+      console.log('Report submitted successfully with ID:', result.id);
+    } catch (error) {
+      console.error('Error submitting report:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to submit report. Please try again.';
+      alert(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -132,14 +307,27 @@ const ReportProblemPage: React.FC = () => {
                 <div className="bg-[#ffeee3] p-6 rounded-lg border border-[#ffeee3] mb-8">
                   <div className="text-left">
                     <p className="text-[#2E2E2E] mb-1">Reference Number:</p>
-                    <p className="text-[#2E2E2E] font-semibold mb-4">{`REP-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}-${new Date().getFullYear()}`}</p>
+                    <p className="text-[#2E2E2E] font-semibold mb-4">{reportId}</p>
                     <p className="text-[#2E2E2E] mb-1">Submitted On:</p>
                     <p className="text-[#2E2E2E] font-semibold">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
                   </div>
                 </div>
               <div className="space-x-4">
                 <button 
-                  onClick={() => setIsSubmitted(false)} 
+                  onClick={() => {
+                    // Reset all form states
+                    setIsSubmitted(false);
+                    setSelectedCategory(null);
+                    setUserName("");
+                    setUserEmail("");
+                    setReportSubject("");
+                    setReportDescription("");
+                    setUrlLink("");
+                    setReportId("");
+                    // Clean up attachment previews
+                    attachments.forEach(att => ImageUploadService.revokePreviewUrl(att.preview));
+                    setAttachments([]);
+                  }} 
                   className="px-6 py-3 bg-white border border-[#ffeee3] rounded-lg text-[#2E2E2E] font-medium hover:bg-[#ffeee3] transition-colors"
                 >
                   Submit Another Report
@@ -291,16 +479,44 @@ const ReportProblemPage: React.FC = () => {
                     {/* Attachments */}
                     <div>
                       <h3 className="text-lg font-semibold mb-4 text-[#2E2E2E]">Attachments (Optional)</h3>
-                      <div className="border-2 border-dashed border-[#ffeee3] rounded-lg p-6 text-center">
-                        {attachmentCount > 0 ? (
+                      <div 
+                        className="border-2 border-dashed border-[#ffeee3] rounded-lg p-6 text-center hover:border-[#FF6B00] transition-colors"
+                        onDragOver={handleDragOver}
+                        onDrop={handleDrop}
+                      >
+                        {attachments.length > 0 ? (
                           <div className="space-y-3">
-                            {Array.from({ length: attachmentCount }).map((_, index) => (
-                              <div key={index} className="bg-[#ffeee3] p-3 rounded-lg flex justify-between items-center">
-                                <span className="text-sm text-[#2E2E2E]">attachment-{index + 1}.jpg</span>
+                            {attachments.map((attachment) => (
+                              <div key={attachment.id} className="bg-[#ffeee3] p-3 rounded-lg flex justify-between items-center">
+                                <div className="flex items-center space-x-3">
+                                  {attachment.file.type.startsWith('image/') && (
+                                    <img 
+                                      src={attachment.preview} 
+                                      alt="Preview" 
+                                      className="w-10 h-10 object-cover rounded"
+                                    />
+                                  )}
+                                  <div className="text-left">
+                                    <span className="text-sm text-[#2E2E2E] block">{attachment.file.name}</span>
+                                    <span className="text-xs text-[#2E2E2E]/70">
+                                      {(attachment.file.size / 1024 / 1024).toFixed(2)} MB
+                                    </span>
+                                    {attachment.uploading && (
+                                      <span className="text-xs text-[#FF6B00] block">Uploading...</span>
+                                    )}
+                                    {attachment.uploaded && (
+                                      <span className="text-xs text-green-600 block">✓ Uploaded</span>
+                                    )}
+                                    {attachment.error && (
+                                      <span className="text-xs text-red-600 block">{attachment.error}</span>
+                                    )}
+                                  </div>
+                                </div>
                                 <button 
                                   type="button" 
-                                  onClick={() => setAttachmentCount(prev => prev - 1)}
+                                  onClick={() => removeAttachment(attachment.id)}
                                   className="text-[#FF6B00] hover:text-[#2E2E2E]"
+                                  disabled={attachment.uploading}
                                 >
                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -308,14 +524,19 @@ const ReportProblemPage: React.FC = () => {
                                 </button>
                               </div>
                             ))}
-                            {attachmentCount < 5 && (
-                              <button 
-                                type="button"
-                                onClick={handleAttachment}
-                                className="text-[#FF6B00] hover:text-[#2E2E2E] text-sm font-medium"
-                              >
-                                + Add More Attachments (maximum 5)
-                              </button>
+                            {attachments.length < 5 && (
+                              <label className="inline-block cursor-pointer">
+                                <input
+                                  type="file"
+                                  multiple
+                                  accept="image/*,.pdf"
+                                  onChange={handleFileSelect}
+                                  className="hidden"
+                                />
+                                <span className="text-[#FF6B00] hover:text-[#2E2E2E] text-sm font-medium">
+                                  + Add More Attachments (maximum 5)
+                                </span>
+                              </label>
                             )}
                           </div>
                         ) : (
@@ -324,14 +545,19 @@ const ReportProblemPage: React.FC = () => {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                             </svg>
                             <p className="text-[#2E2E2E] mb-2">Drag & drop files here, or click to select files</p>
-                            <p className="text-[#2E2E2E] text-sm">Supports: JPG, PNG, PDF (Max 5 files, 10MB each)</p>
-                            <button 
-                              type="button"
-                              onClick={handleAttachment}
-                              className="mt-4 px-4 py-2 bg-[#ffeee3] text-[#FF6B00] rounded-lg text-sm font-medium hover:bg-[#FF6B00] hover:text-white transition-colors"
-                            >
-                              Select Files
-                            </button>
+                            <p className="text-[#2E2E2E] text-sm">Supports: JPG, PNG, PDF (Max 5 files, 5MB each)</p>
+                            <label className="inline-block cursor-pointer mt-4">
+                              <input
+                                type="file"
+                                multiple
+                                accept="image/*,.pdf"
+                                onChange={handleFileSelect}
+                                className="hidden"
+                              />
+                              <span className="px-4 py-2 bg-[#ffeee3] text-[#FF6B00] rounded-lg text-sm font-medium hover:bg-[#FF6B00] hover:text-white transition-colors">
+                                Select Files
+                              </span>
+                            </label>
                           </div>
                         )}
                       </div>
