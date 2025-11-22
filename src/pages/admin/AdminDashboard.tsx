@@ -7,7 +7,6 @@ import {
   Briefcase, 
   DollarSign, 
   AlertTriangle,
-  FileText,
   Settings
 } from 'lucide-react';
 
@@ -91,19 +90,17 @@ const AdminDashboard: React.FC = () => {
   const quickActions = [
     { title: 'User Management', icon: Users, path: '/admin/users', color: 'bg-blue-500' },
     { title: 'Project Oversight', icon: Briefcase, path: '/admin/projects', color: 'bg-green-500' },
-    { title: 'Financial Reports', icon: DollarSign, path: '/admin/reports', color: 'bg-yellow-500' },
-    { title: 'Dispute Resolution', icon: AlertTriangle, path: '/admin/disputes', color: 'bg-red-500' },
-    { title: 'Content Management', icon: FileText, path: '/admin/content', color: 'bg-purple-500' },
+    { title: 'Dispute Resolution', icon: AlertTriangle, path: '/admin/dispute-resolution', color: 'bg-red-500' },
     { title: 'System Settings', icon: Settings, path: '/admin/settings', color: 'bg-gray-500' }
   ];
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 pt-20">
+      <div className="min-h-screen bg-[#ffeee3] pt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            <span className="ml-3 text-gray-600">Loading admin dashboard...</span>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B00]"></div>
+            <span className="ml-3 text-[#2E2E2E]">Loading admin dashboard...</span>
           </div>
         </div>
       </div>
@@ -111,57 +108,57 @@ const AdminDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-20">
+    <div className="min-h-screen bg-[#ffeee3] pt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-          <p className="text-gray-600">Overview of platform performance and management tools</p>
+          <h1 className="text-3xl font-bold text-[#2E2E2E]">Admin Dashboard</h1>
+          <p className="text-[#2E2E2E]/70">Overview of platform performance and management tools</p>
         </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow-sm border border-[#ffeee3] p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Users</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.totalUsers.toLocaleString()}</p>
-                <p className="text-sm text-green-600">+{stats.monthlyGrowth}% this month</p>
+                <p className="text-sm font-medium text-[#2E2E2E]/70">Total Users</p>
+                <p className="text-2xl font-bold text-[#2E2E2E]">{stats.totalUsers.toLocaleString()}</p>
+                <p className="text-sm text-[#FF6B00]">+{stats.monthlyGrowth}% this month</p>
               </div>
-              <Users className="w-8 h-8 text-blue-500" />
+              <Users className="w-8 h-8 text-[#FF6B00]" />
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow-sm border border-[#ffeee3] p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Active Projects</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.totalProjects.toLocaleString()}</p>
-                <p className="text-sm text-blue-600">Freelancers: {stats.totalFreelancers}</p>
+                <p className="text-sm font-medium text-[#2E2E2E]/70">Active Projects</p>
+                <p className="text-2xl font-bold text-[#2E2E2E]">{stats.totalProjects.toLocaleString()}</p>
+                <p className="text-sm text-[#2E2E2E]/60">+12 this week</p>
               </div>
-              <Briefcase className="w-8 h-8 text-green-500" />
+              <Briefcase className="w-8 h-8 text-[#FF6B00]" />
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow-sm border border-[#ffeee3] p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                <p className="text-2xl font-bold text-gray-900">${stats.totalRevenue.toLocaleString()}</p>
-                <p className="text-sm text-green-600">Platform earnings</p>
+                <p className="text-sm font-medium text-[#2E2E2E]/70">Total Revenue</p>
+                <p className="text-2xl font-bold text-[#2E2E2E]">${stats.totalRevenue.toLocaleString()}</p>
+                <p className="text-sm text-[#FF6B00]">Platform earnings</p>
               </div>
-              <DollarSign className="w-8 h-8 text-yellow-500" />
+              <DollarSign className="w-8 h-8 text-[#FF6B00]" />
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow-sm border border-[#ffeee3] p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Pending Issues</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.pendingApprovals + stats.activeDisputes}</p>
-                <p className="text-sm text-red-600">{stats.activeDisputes} disputes active</p>
+                <p className="text-sm font-medium text-[#2E2E2E]/70">Pending Issues</p>
+                <p className="text-2xl font-bold text-[#2E2E2E]">{stats.pendingApprovals + stats.activeDisputes}</p>
+                <p className="text-sm text-[#FF6B00]">{stats.activeDisputes} disputes active</p>
               </div>
-              <AlertTriangle className="w-8 h-8 text-red-500" />
+              <AlertTriangle className="w-8 h-8 text-[#FF6B00]" />
             </div>
           </div>
         </div>
@@ -169,23 +166,23 @@ const AdminDashboard: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Quick Actions */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow">
-              <div className="p-6 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
+            <div className="bg-white rounded-lg shadow-sm border border-[#ffeee3]">
+              <div className="p-6 border-b border-[#ffeee3]">
+                <h2 className="text-lg font-semibold text-[#2E2E2E]">Quick Actions</h2>
               </div>
               <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {quickActions.map((action, index) => (
                     <Link
                       key={index}
                       to={action.path}
-                      className="p-4 border border-gray-200 rounded-lg hover:border-gray-300 hover:shadow-md transition-all group"
+                      className="p-4 border border-[#ffeee3] rounded-lg hover:border-[#FF6B00] hover:shadow-md transition-all group"
                     >
                       <div className="flex items-center space-x-3">
-                        <div className={`p-2 rounded-lg ${action.color} text-white group-hover:scale-110 transition-transform`}>
+                        <div className="p-2 rounded-lg bg-[#FF6B00] text-white group-hover:scale-110 transition-transform">
                           <action.icon className="w-5 h-5" />
                         </div>
-                        <span className="font-medium text-gray-900">{action.title}</span>
+                        <span className="font-medium text-[#2E2E2E]">{action.title}</span>
                       </div>
                     </Link>
                   ))}
@@ -195,31 +192,25 @@ const AdminDashboard: React.FC = () => {
           </div>
 
           {/* Recent Activity */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
+          <div className="bg-white rounded-lg shadow-sm border border-[#ffeee3]">
+            <div className="p-6 border-b border-[#ffeee3]">
+              <h2 className="text-lg font-semibold text-[#2E2E2E]">Recent Activity</h2>
             </div>
             <div className="p-6">
               <div className="space-y-4">
                 {recentActivity.map((activity, index) => (
                   <div key={index} className="flex items-start space-x-3">
-                    <div className={`w-2 h-2 rounded-full mt-2 ${
-                      activity.status === 'new' ? 'bg-blue-500' :
-                      activity.status === 'completed' ? 'bg-green-500' :
-                      activity.status === 'pending' ? 'bg-yellow-500' :
-                      activity.status === 'success' ? 'bg-green-500' :
-                      'bg-gray-500'
-                    }`}></div>
+                    <div className="w-2 h-2 rounded-full mt-2 bg-[#FF6B00]"></div>
                     <div className="flex-1">
-                      <p className="text-sm text-gray-900">{activity.message}</p>
-                      <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
+                      <p className="text-sm text-[#2E2E2E]">{activity.message}</p>
+                      <p className="text-xs text-[#2E2E2E]/50 mt-1">{activity.time}</p>
                     </div>
                   </div>
                 ))}
               </div>
               <Link 
                 to="/admin/activity" 
-                className="block text-center text-blue-600 hover:text-blue-800 text-sm font-medium mt-4"
+                className="block text-center text-[#FF6B00] hover:text-[#2E2E2E] text-sm font-medium mt-4"
               >
                 View All Activity
               </Link>
@@ -228,23 +219,23 @@ const AdminDashboard: React.FC = () => {
         </div>
 
         {/* System Health */}
-        <div className="mt-8 bg-white rounded-lg shadow">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">System Overview</h2>
+        <div className="mt-8 bg-white rounded-lg shadow-sm border border-[#ffeee3]">
+          <div className="p-6 border-b border-[#ffeee3]">
+            <h2 className="text-lg font-semibold text-[#2E2E2E]">System Overview</h2>
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">99.9%</div>
-                <p className="text-sm text-gray-600">Uptime</p>
+                <div className="text-2xl font-bold text-[#FF6B00]">99.9%</div>
+                <p className="text-sm text-[#2E2E2E]/70">Uptime</p>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">1.2s</div>
-                <p className="text-sm text-gray-600">Avg Response Time</p>
+                <div className="text-2xl font-bold text-[#FF6B00]">1.2s</div>
+                <p className="text-sm text-[#2E2E2E]/70">Avg Response Time</p>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-yellow-600">850GB</div>
-                <p className="text-sm text-gray-600">Storage Used</p>
+                <div className="text-2xl font-bold text-[#FF6B00]">850GB</div>
+                <p className="text-sm text-[#2E2E2E]/70">Storage Used</p>
               </div>
             </div>
           </div>

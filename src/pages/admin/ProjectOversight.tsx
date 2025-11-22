@@ -206,21 +206,21 @@ const ProjectOversight: React.FC = () => {
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      published: 'bg-green-100 text-green-800',
-      draft: 'bg-gray-100 text-gray-800',
-      under_review: 'bg-yellow-100 text-yellow-800',
-      rejected: 'bg-red-100 text-red-800'
+      published: 'bg-[#ffeee3] text-[#FF6B00]',
+      draft: 'bg-[#ffeee3] text-[#2E2E2E]/70',
+      under_review: 'bg-[#ffeee3] text-[#FF6B00]',
+      rejected: 'bg-[#ffeee3] text-[#2E2E2E]'
     };
-    return styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-800';
+    return styles[status as keyof typeof styles] || 'bg-[#ffeee3] text-[#2E2E2E]';
   };
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 pt-20">
+      <div className="min-h-screen bg-[#ffeee3] pt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            <span className="ml-3 text-gray-600">Loading projects...</span>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B00]"></div>
+            <span className="ml-3 text-[#2E2E2E]">Loading projects...</span>
           </div>
         </div>
       </div>
@@ -228,13 +228,13 @@ const ProjectOversight: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-20">
+    <div className="min-h-screen bg-[#ffeee3] pt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Project Oversight</h1>
-            <p className="text-gray-600">Monitor and manage all portfolio projects</p>
+            <h1 className="text-3xl font-bold text-[#2E2E2E]">Project Oversight</h1>
+            <p className="text-[#2E2E2E]/70">Monitor and manage all platform projects</p>
           </div>
           <div className="flex items-center space-x-4">
             <div className="flex bg-gray-100 rounded-lg p-1">
@@ -269,18 +269,18 @@ const ProjectOversight: React.FC = () => {
                   placeholder="Search projects..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="pl-10 pr-4 py-2 w-full border border-[#ffeee3] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
                 />
               </div>
 
               {/* Filters */}
               <div className="flex space-x-4">
                 <div className="flex items-center space-x-2">
-                  <Filter className="w-5 h-5 text-gray-400" />
+                  <Filter className="w-5 h-5 text-[#FF6B00]" />
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="border border-[#ffeee3] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]"
                   >
                     <option value="all">All Status</option>
                     <option value="published">Published</option>
@@ -293,7 +293,7 @@ const ProjectOversight: React.FC = () => {
                 <select
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="border border-[#ffeee3] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]"
                 >
                   <option value="all">All Categories</option>
                   {categories.map(category => (
@@ -305,27 +305,27 @@ const ProjectOversight: React.FC = () => {
 
             {/* Bulk Actions */}
             {selectedProjects.length > 0 && (
-              <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+              <div className="mt-4 p-4 bg-[#ffeee3] rounded-lg">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-blue-800">
+                  <span className="text-sm text-[#2E2E2E]">
                     {selectedProjects.length} projects selected
                   </span>
                   <div className="flex space-x-2">
                     <button
                       onClick={() => handleBulkAction('approve')}
-                      className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                      className="px-3 py-1 bg-[#FF6B00] text-white text-sm rounded hover:bg-[#FF6B00]/90"
                     >
                       Approve
                     </button>
                     <button
                       onClick={() => handleBulkAction('reject')}
-                      className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
+                      className="px-3 py-1 bg-[#2E2E2E] text-white text-sm rounded hover:bg-[#2E2E2E]/90"
                     >
                       Reject
                     </button>
                     <button
                       onClick={() => handleBulkAction('feature')}
-                      className="px-3 py-1 bg-yellow-600 text-white text-sm rounded hover:bg-yellow-700"
+                      className="px-3 py-1 bg-[#FF6B00] text-white text-sm rounded hover:bg-[#FF6B00]/90"
                     >
                       Feature
                     </button>
@@ -436,7 +436,7 @@ const ProjectOversight: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-[#ffeee3] text-[#FF6B00]">
                           {project.category}
                         </span>
                         {project.budget && (

@@ -494,12 +494,9 @@ const WaysToEarnPage: React.FC = () => {
             <p className="text-xl opacity-90 mb-8 text-[#ffeee3]">
               Join thousands of freelancers who are building their careers and increasing their earnings on FreelanceNest.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex justify-center">
               <Link to="/login" className="bg-[#FF6B00] text-white hover:bg-[#FF6B00]/90 font-medium px-8 py-4 rounded-lg text-lg transition-colors duration-200 inline-block shadow-lg hover:shadow-xl">
                 Start Earning Now
-              </Link>
-              <Link to="/login" className="bg-transparent border border-[#FF6B00] text-[#FF6B00] hover:bg-[#FF6B00]/10 font-medium px-8 py-4 rounded-lg text-lg transition-colors duration-200 inline-block">
-                Learn More
               </Link>
             </div>
           </div>
