@@ -2,13 +2,6 @@
 import { Globe, Users, Award, TrendingUp, Briefcase, CheckCircle } from 'lucide-react';
 
 const AboutUsPage: React.FC = () => {
-  // Stats data
-  const stats = [
-    { value: '2.5M+', label: 'Freelancers' },
-    { value: '350K+', label: 'Clients' },
-    { value: '12M+', label: 'Projects Completed' },
-    { value: '$3B+', label: 'Payments Processed' }
-  ];
 
   // Values data
   const values = [
@@ -31,35 +24,6 @@ const AboutUsPage: React.FC = () => {
       icon: <TrendingUp className="w-6 h-6" />,
       title: 'Continuous Growth',
       description: 'We constantly innovate and improve our platform to help freelancers and clients succeed.'
-    }
-  ];
-
-  // Timeline data
-  const timeline = [
-    {
-      year: '2025',
-      title: 'FreelanceNest Launches',
-      description: 'Founded with a mission to transform how the world works, FreelanceNest platform is launched with cutting-edge technology.'
-    },
-    {
-      year: '2026',
-      title: 'International Expansion',
-      description: 'Extended operations to 20+ countries, supporting multiple languages and payment methods worldwide.'
-    },
-    {
-      year: '2027',
-      title: 'Skill Certification Program',
-      description: 'Introduced industry-standard skill verification to ensure quality talent for clients across all sectors.'
-    },
-    {
-      year: '2028',
-      title: 'Enterprise Solutions',
-      description: 'Launched dedicated enterprise services for Fortune 500 companies seeking specialized talent and project management.'
-    },
-    {
-      year: '2029',
-      title: 'AI-Powered Matching',
-      description: 'Implemented advanced AI algorithms for perfect talent-project matching and enhanced user experience.'
     }
   ];
 

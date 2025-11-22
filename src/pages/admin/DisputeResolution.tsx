@@ -2,16 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { 
   AlertTriangle, 
   Eye, 
-  MessageSquare, 
-  Clock, 
   CheckCircle, 
   XCircle,
   Search,
   Filter,
   MoreHorizontal,
-  User,
-  Calendar,
-  DollarSign
+  User
 } from 'lucide-react';
 
 interface Dispute {

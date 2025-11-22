@@ -1,4 +1,5 @@
 ﻿import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 // Report problem categories
 const reportCategories = [
@@ -354,7 +355,7 @@ const ReportProblemPage: React.FC = () => {
                         ) : 'Submit Report'}
                       </button>
                       <p className="text-sm text-[#2E2E2E]">
-                        By submitting this report, you agree to our <a href="#" className="text-[#FF6B00] hover:underline">Terms of Service</a> and <a href="#" className="text-[#FF6B00] hover:underline">Privacy Policy</a>.
+                        By submitting this report, you agree to our <Link to="/terms-of-service" className="text-[#FF6B00] hover:underline">Terms of Service</Link> and <Link to="/privacy-policy" className="text-[#FF6B00] hover:underline">Privacy Policy</Link>.
                       </p>
                     </div>
                   </div>

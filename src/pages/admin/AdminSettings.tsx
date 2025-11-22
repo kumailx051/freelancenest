@@ -5,15 +5,12 @@ import {
   Settings, 
   Save, 
   Shield, 
-  Globe, 
-  Mail, 
   Bell, 
   Users, 
   DollarSign,
   AlertTriangle,
   Database,
-  Server,
-  Lock
+  Server
 } from 'lucide-react';
 
 interface SettingsSection {

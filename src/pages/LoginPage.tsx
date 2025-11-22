@@ -302,6 +302,16 @@ const LoginPage: React.FC = () => {
                 Create account
               </Link>
             </p>
+            <p className="text-xs text-gray-500 mt-4">
+              By signing in, you agree to our{' '}
+              <Link to="/terms-of-service" className="text-[#FF6B00] hover:text-[#FF9F45] font-medium">
+                Terms of Service
+              </Link>
+              {' '}and{' '}
+              <Link to="/privacy-policy" className="text-[#FF6B00] hover:text-[#FF9F45] font-medium">
+                Privacy Policy
+              </Link>
+            </p>
           </div>
         </div>
       </div>

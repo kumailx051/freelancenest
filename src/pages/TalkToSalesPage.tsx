@@ -1,4 +1,5 @@
 ﻿import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 const TalkToSalesPage: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -216,8 +217,8 @@ const TalkToSalesPage: React.FC = () => {
                         />
                         <label htmlFor="agreeToTerms" className="ml-2 text-sm text-[#2E2E2E]">
                           I agree to receive communications from FreelanceNest. I understand I can unsubscribe at any time.
-                          By submitting this form, I agree to the <a href="#" className="text-[#FF6B00] hover:underline">Privacy Policy</a> and
-                          <a href="#" className="text-[#FF6B00] hover:underline"> Terms of Service</a>.
+                          By submitting this form, I agree to the <Link to="/privacy-policy" className="text-[#FF6B00] hover:underline">Privacy Policy</Link> and
+                          <Link to="/terms-of-service" className="text-[#FF6B00] hover:underline"> Terms of Service</Link>.
                         </label>
                       </div>
                     </div>

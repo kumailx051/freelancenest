@@ -169,15 +169,15 @@ const Footer: React.FC = () => {
 
             {/* Legal Links */}
             <div className="flex items-center space-x-6 text-sm">
-              <a href="#" className="text-[#ffeee3] hover:text-[#FF6B00] transition-colors duration-200">
+              <Link to="/privacy-policy" className="text-[#ffeee3] hover:text-[#FF6B00] transition-colors duration-200">
                 Privacy Policy
-              </a>
-              <a href="#" className="text-[#ffeee3] hover:text-[#FF6B00] transition-colors duration-200">
+              </Link>
+              <Link to="/terms-of-service" className="text-[#ffeee3] hover:text-[#FF6B00] transition-colors duration-200">
                 Terms of Service
-              </a>
-              <a href="#" className="text-[#ffeee3] hover:text-[#FF6B00] transition-colors duration-200">
+              </Link>
+              <Link to="/cookie-policy" className="text-[#ffeee3] hover:text-[#FF6B00] transition-colors duration-200">
                 Cookie Policy
-              </a>
+              </Link>
             </div>
 
             {/* Social Links */}

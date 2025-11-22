@@ -31,6 +31,11 @@ import HelpCenterPage from './pages/resources/HelpCenterPage'
 // Company Pages
 import AboutUsPage from './pages/company/AboutUsPage'
 
+// Policy Pages
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
+import TermsOfServicePage from './pages/TermsOfServicePage'
+import CookiePolicyPage from './pages/CookiePolicyPage'
+
 // Client Pages
 import ClientDashboard from './pages/client/ClientDashboard'
 import BrowseFreelancersPage from './pages/client/BrowseFreelancersPage'
@@ -213,6 +218,11 @@ function App() {
               
               {/* Company Routes */}
               <Route path="/company/about" element={<AboutUsPage />} />
+              
+              {/* Policy Routes */}
+              <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+              <Route path="/terms-of-service" element={<TermsOfServicePage />} />
+              <Route path="/cookie-policy" element={<CookiePolicyPage />} />
             </Routes>
           </AppLayout>
         } />

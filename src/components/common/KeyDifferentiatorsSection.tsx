@@ -85,28 +85,6 @@ const KeyDifferentiatorsSection: React.FC = () => {
             );
           })}
         </div>
-
-        {/* Bottom Stats */}
-        <div className="mt-20 bg-[#2E2E2E] rounded-3xl p-8 md:p-12 text-white">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
-            <div>
-              <div className="text-3xl md:text-4xl font-bold mb-2">100k+</div>
-              <div className="text-[#ffeee3]">Active Users</div>
-            </div>
-            <div>
-              <div className="text-3xl md:text-4xl font-bold mb-2">50k+</div>
-              <div className="text-[#ffeee3]">Projects Completed</div>
-            </div>
-            <div>
-              <div className="text-3xl md:text-4xl font-bold mb-2">99%</div>
-              <div className="text-[#ffeee3]">Success Rate</div>
-            </div>
-            <div>
-              <div className="text-3xl md:text-4xl font-bold mb-2">4.9★</div>
-              <div className="text-[#ffeee3]">Average Rating</div>
-            </div>
-          </div>
-        </div>
       </div>
     </section>
   );
