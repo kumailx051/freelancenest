@@ -82,8 +82,8 @@ import DisputeCenter from './pages/freelancer/DisputeCenter'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import UserManagement from './pages/admin/UserManagement'
 import ProjectOversight from './pages/admin/ProjectOversight'
-import ReportsMonitoring from './pages/admin/ReportsMonitoring'
-import AnalyticsReporting from './pages/admin/AnalyticsReporting'
+import DisputeResolution from './pages/admin/DisputeResolution'
+import AdminSettings from './pages/admin/AdminSettings'
 
 // Components
 import AppLayout from './components/common/AppLayout'
@@ -105,9 +105,8 @@ function App() {
                 <Route path="dashboard" element={<AdminDashboard />} />
                 <Route path="users" element={<UserManagement />} />
                 <Route path="projects" element={<ProjectOversight />} />
-                <Route path="reports" element={<ReportsMonitoring />} />
-                <Route path="analytics" element={<AnalyticsReporting />} />
-                <Route path="settings" element={<AdminDashboard />} />
+                <Route path="dispute-resolution" element={<DisputeResolution />} />
+                <Route path="settings" element={<AdminSettings />} />
               </Routes>
             </AdminLayout>
           </ProtectedRoute>

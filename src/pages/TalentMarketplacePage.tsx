@@ -38,6 +38,7 @@ const TalentMarketplacePage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState('featured');
+  const [isSorting, setIsSorting] = useState(false);
 
   useEffect(() => {
     fetchFreelancers();
@@ -92,6 +93,7 @@ const TalentMarketplacePage: React.FC = () => {
   };
 
   const filterAndSortFreelancers = () => {
+    setIsSorting(true);
     let filtered = [...freelancers];
 
     // Filter by search term
@@ -122,23 +124,46 @@ const TalentMarketplacePage: React.FC = () => {
     // Sort freelancers
     switch (sortBy) {
       case 'rate-low':
-        filtered.sort((a, b) => (a.hourlyRate || 0) - (b.hourlyRate || 0));
+        filtered.sort((a, b) => {
+          const rateA = a.hourlyRate || 0;
+          const rateB = b.hourlyRate || 0;
+          return rateA - rateB;
+        });
         break;
       case 'rate-high':
-        filtered.sort((a, b) => (b.hourlyRate || 0) - (a.hourlyRate || 0));
+        filtered.sort((a, b) => {
+          const rateA = a.hourlyRate || 0;
+          const rateB = b.hourlyRate || 0;
+          return rateB - rateA;
+        });
         break;
       case 'rating':
-        filtered.sort((a, b) => (b.stats?.clientSatisfaction || 0) - (a.stats?.clientSatisfaction || 0));
+        filtered.sort((a, b) => {
+          const ratingA = a.stats?.clientSatisfaction || 0;
+          const ratingB = b.stats?.clientSatisfaction || 0;
+          return ratingB - ratingA;
+        });
         break;
       case 'projects':
-        filtered.sort((a, b) => (b.stats?.completedProjects || 0) - (a.stats?.completedProjects || 0));
+        filtered.sort((a, b) => {
+          const projectsA = a.stats?.completedProjects || 0;
+          const projectsB = b.stats?.completedProjects || 0;
+          return projectsB - projectsA;
+        });
         break;
+      case 'featured':
       default:
-        // Keep original order for 'featured'
+        // Sort by a combination of rating and projects for featured
+        filtered.sort((a, b) => {  
+          const scoreA = (a.stats?.clientSatisfaction || 0) + (a.stats?.completedProjects || 0) * 2;
+          const scoreB = (b.stats?.clientSatisfaction || 0) + (b.stats?.completedProjects || 0) * 2;
+          return scoreB - scoreA;
+        });
         break;
     }
 
     setFilteredFreelancers(filtered);
+    setTimeout(() => setIsSorting(false), 100);
   };
 
   const getFreelancerSkills = (skillCategories: any) => {
@@ -189,14 +214,17 @@ const TalentMarketplacePage: React.FC = () => {
               <div className="relative w-64">
                 <select 
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="appearance-none w-full bg-white border border-[#ffeee3] rounded-lg px-4 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]"
+                  onChange={(e) => {
+                    console.log('Sort changed to:', e.target.value);
+                    setSortBy(e.target.value);
+                  }}
+                  className="appearance-none w-full bg-white border border-[#ffeee3] rounded-lg px-4 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-[#FF6B00] hover:border-[#FF6B00] transition-colors cursor-pointer"
                 >
                   <option value="featured">Sort by: Featured</option>
-                  <option value="rating">Highest Rating</option>
-                  <option value="rate-low">Lowest Rate</option>
-                  <option value="rate-high">Highest Rate</option>
-                  <option value="projects">Most Projects</option>
+                  <option value="rating">Sort by: Highest Rating</option>
+                  <option value="rate-low">Sort by: Lowest Rate</option>
+                  <option value="rate-high">Sort by: Highest Rate</option>
+                  <option value="projects">Sort by: Most Projects</option>
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-[#2E2E2E]">
                   <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
@@ -211,6 +239,11 @@ const TalentMarketplacePage: React.FC = () => {
             <div className="flex justify-center items-center py-16">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B00]"></div>
               <span className="ml-3 text-[#2E2E2E]">Loading talents...</span>
+            </div>
+          ) : isSorting ? (
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF6B00]"></div>
+              <span className="ml-3 text-[#2E2E2E]">Sorting...</span>
             </div>
           ) : filteredFreelancers.length === 0 ? (
             <div className="text-center py-16">

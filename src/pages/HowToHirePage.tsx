@@ -207,9 +207,6 @@ const HowToHirePage: React.FC = () => {
                 <div>
                   <h3 className="text-xl font-semibold mb-2 text-[#2E2E2E]">Use Screening References</h3>
                   <p className="text-[#2E2E2E]/80 mb-4">Access our comprehensive screening tools and reference checks to validate freelancer credentials and past work history.</p>
-                  <Link to="/login" className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 inline-block">
-                    Access Screening Tools
-                  </Link>
                 </div>
               </div>
             </div>

@@ -19,6 +19,7 @@ interface User {
   lastName: string;
   email: string;
   role: 'freelancer' | 'client';
+  accountType?: 'freelancer' | 'client';
   status: 'active' | 'suspended' | 'pending';
   profilePictureUrl?: string;
   location?: string;
@@ -60,7 +61,8 @@ const UserManagement: React.FC = () => {
           firstName: userData.firstName || '',
           lastName: userData.lastName || '',
           email: userData.email || '',
-          role: userData.role || 'freelancer',
+          role: userData.accountType || userData.role || 'freelancer',
+          accountType: userData.accountType || userData.role || 'freelancer',
           status: userData.status || 'active',
           profilePictureUrl: userData.profilePictureUrl || '',
           location: userData.location || '',
@@ -87,13 +89,14 @@ const UserManagement: React.FC = () => {
       filtered = filtered.filter(user => 
         user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase())
+        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (user.accountType || user.role).toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     // Role filter
     if (roleFilter !== 'all') {
-      filtered = filtered.filter(user => user.role === roleFilter);
+      filtered = filtered.filter(user => (user.accountType || user.role) === roleFilter);
     }
 
     // Status filter
@@ -161,28 +164,28 @@ const UserManagement: React.FC = () => {
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      active: 'bg-green-100 text-green-800',
-      suspended: 'bg-red-100 text-red-800',
-      pending: 'bg-yellow-100 text-yellow-800'
+      active: 'bg-[#ffeee3] text-[#FF6B00]',
+      suspended: 'bg-[#ffeee3] text-[#2E2E2E]',
+      pending: 'bg-[#ffeee3] text-[#FF6B00]'
     };
-    return styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-800';
+    return styles[status as keyof typeof styles] || 'bg-[#ffeee3] text-[#2E2E2E]';
   };
 
   const getRoleBadge = (role: string) => {
     const styles = {
-      freelancer: 'bg-blue-100 text-blue-800',
-      client: 'bg-purple-100 text-purple-800'
+      freelancer: 'bg-[#ffeee3] text-[#FF6B00] border border-[#FF6B00]',
+      client: 'bg-[#ffeee3] text-[#2E2E2E] border border-[#2E2E2E]'
     };
-    return styles[role as keyof typeof styles] || 'bg-gray-100 text-gray-800';
+    return styles[role as keyof typeof styles] || 'bg-[#ffeee3] text-[#2E2E2E] border border-[#2E2E2E]';
   };
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 pt-20">
+      <div className="min-h-screen bg-[#ffeee3] pt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            <span className="ml-3 text-gray-600">Loading users...</span>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B00]"></div>
+            <span className="ml-3 text-[#2E2E2E]">Loading users...</span>
           </div>
         </div>
       </div>
@@ -190,16 +193,16 @@ const UserManagement: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-20">
+    <div className="min-h-screen bg-[#ffeee3] pt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-            <p className="text-gray-600">Manage and monitor all platform users</p>
+            <h1 className="text-3xl font-bold text-[#2E2E2E]">User Management</h1>
+            <p className="text-[#2E2E2E]/70">Manage and monitor all platform users</p>
           </div>
           <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-[#2E2E2E]/50">
               {filteredUsers.length} of {users.length} users
             </span>
           </div>
@@ -217,18 +220,18 @@ const UserManagement: React.FC = () => {
                   placeholder="Search users..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="pl-10 pr-4 py-2 w-full border border-[#ffeee3] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
                 />
               </div>
 
               {/* Filters */}
               <div className="flex space-x-4">
                 <div className="flex items-center space-x-2">
-                  <Filter className="w-5 h-5 text-gray-400" />
+                  <Filter className="w-5 h-5 text-[#FF6B00]" />
                   <select
                     value={roleFilter}
                     onChange={(e) => setRoleFilter(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="border border-[#ffeee3] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]"
                   >
                     <option value="all">All Roles</option>
                     <option value="freelancer">Freelancers</option>
@@ -239,7 +242,7 @@ const UserManagement: React.FC = () => {
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="border border-[#ffeee3] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]"
                 >
                   <option value="all">All Status</option>
                   <option value="active">Active</option>
@@ -251,27 +254,27 @@ const UserManagement: React.FC = () => {
 
             {/* Bulk Actions */}
             {selectedUsers.length > 0 && (
-              <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+              <div className="mt-4 p-4 bg-[#ffeee3] rounded-lg">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-blue-800">
+                  <span className="text-sm text-[#2E2E2E]">
                     {selectedUsers.length} users selected
                   </span>
                   <div className="flex space-x-2">
                     <button
                       onClick={() => handleBulkAction('activate')}
-                      className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                      className="px-3 py-1 bg-[#FF6B00] text-white text-sm rounded hover:bg-[#FF6B00]/90"
                     >
                       Activate
                     </button>
                     <button
                       onClick={() => handleBulkAction('suspend')}
-                      className="px-3 py-1 bg-yellow-600 text-white text-sm rounded hover:bg-yellow-700"
+                      className="px-3 py-1 bg-[#2E2E2E] text-white text-sm rounded hover:bg-[#2E2E2E]/90"
                     >
                       Suspend
                     </button>
                     <button
                       onClick={() => handleBulkAction('delete')}
-                      className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
+                      className="px-3 py-1 bg-[#2E2E2E] text-white text-sm rounded hover:bg-[#2E2E2E]/90"
                     >
                       Delete
                     </button>
@@ -299,7 +302,7 @@ const UserManagement: React.FC = () => {
                           setSelectedUsers([]);
                         }
                       }}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="rounded border-[#ffeee3] text-[#FF6B00] focus:ring-[#FF6B00]"
                     />
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -333,7 +336,7 @@ const UserManagement: React.FC = () => {
                             setSelectedUsers(selectedUsers.filter(id => id !== user.id));
                           }
                         }}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        className="rounded border-[#ffeee3] text-[#FF6B00] focus:ring-[#FF6B00]"
                       />
                     </td>
                     <td className="px-6 py-4">
@@ -357,7 +360,7 @@ const UserManagement: React.FC = () => {
                               {user.firstName} {user.lastName}
                             </div>
                             {user.isVerified && (
-                              <ShieldCheck className="w-4 h-4 text-green-500 ml-2" />
+                              <ShieldCheck className="w-4 h-4 text-[#FF6B00] ml-2" />
                             )}
                           </div>
                           <div className="text-sm text-gray-500">{user.email}</div>
@@ -371,12 +374,14 @@ const UserManagement: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleBadge(user.role)}`}>
-                        {user.role}
-                      </span>
-                      {user.profileTitle && (
-                        <div className="text-xs text-gray-500 mt-1">{user.profileTitle}</div>
-                      )}
+                      <div className="flex flex-col">
+                        <span className={`inline-flex w-fit px-3 py-1 text-xs font-semibold rounded-full ${getRoleBadge(user.accountType || user.role)}`}>
+                          {(user.accountType || user.role).toUpperCase()}
+                        </span>
+                        {user.profileTitle && (
+                          <div className="text-xs text-gray-500 mt-1">{user.profileTitle}</div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(user.status)}`}>
