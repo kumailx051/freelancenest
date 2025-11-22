@@ -14,7 +14,8 @@ import {
   Menu,
   X,
   CreditCard,
-  CheckCircle
+  CheckCircle,
+  Search
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useMessages } from '../../contexts/MessageContext';
@@ -122,7 +123,8 @@ const FreelancerHeader: React.FC = () => {
 
   const navigation = [
     { name: 'Dashboard', href: '/freelancer/dashboard', icon: Home },
-    { name: 'My Jobs', href: '/freelancer/orders', icon: Briefcase },
+    { name: 'Job Feed', href: '/freelancer/job-feed', icon: Search },
+    { name: 'My Orders', href: '/freelancer/orders', icon: Briefcase },
     { name: 'Proposals', href: '/freelancer/my-proposals', icon: Star },
     { name: 'Earnings', href: '/freelancer/earnings', icon: DollarSign },
   ];

@@ -1,237 +1,245 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { 
-  Search, 
-  Star, 
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  Search,
   Heart,
-  ChevronDown
+  MapPin,
+  Clock,
+  DollarSign,
+  Eye,
+  Send,
+  Briefcase
 } from 'lucide-react';
+import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import { useAuth } from '../../contexts/AuthContext';
+
+interface Project {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  skills: string[];
+  budget: {
+    type: string;
+    amount?: number;
+    min?: number;
+    max?: number;
+  };
+  duration: string;
+  experienceLevel: string;
+  location?: string;
+  postedDate: any;
+  clientId: string;
+  clientName?: string;
+  clientAvatar?: string;
+  status: string;
+  proposalsCount?: number;
+}
 
 const JobFeed: React.FC = () => {
+  const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [sortBy, setSortBy] = useState('best-selling');
-  const [bookmarkedJobs, setBookmarkedJobs] = useState<number[]>([]);
+  const [sortBy, setSortBy] = useState('newest');
+  const [bookmarkedJobs, setBookmarkedJobs] = useState<string[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const categories = [
     { value: 'all', label: 'All Categories' },
-    { value: 'web-development', label: 'Web Development' },
-    { value: 'mobile-development', label: 'Mobile Development' },
-    { value: 'design', label: 'Design & Creative' },
-    { value: 'writing', label: 'Writing & Content' },
-    { value: 'marketing', label: 'Digital Marketing' },
-    { value: 'data-science', label: 'Data Science & Analytics' },
-    { value: 'video-animation', label: 'Video & Animation' }
+    { value: 'Web Development', label: 'Web Development' },
+    { value: 'Mobile Development', label: 'Mobile Development' },
+    { value: 'Design & Creative', label: 'Design & Creative' },
+    { value: 'Writing & Content', label: 'Writing & Content' },
+    { value: 'Digital Marketing', label: 'Digital Marketing' },
+    { value: 'Data Science', label: 'Data Science & Analytics' },
+    { value: 'Video & Animation', label: 'Video & Animation' }
   ];
 
-  const jobs = [
-    {
-      id: 1,
-      title: 'I will build, design, redesign, develop, update, clone, or fix WordPress website',
-      image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=250&fit=crop&auto=format',
-      freelancer: {
-        name: 'Manik Uzzaman',
-        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=50&h=50&fit=crop&crop=face&auto=format',
-        level: 'Level 2',
-        rating: 4.8,
-        reviewsCount: 355,
-        badge: "Fiverr's Choice",
-        isChoice: true
-      },
-      pricing: {
-        currency: 'PKR',
-        startingPrice: 39927
-      },
-      category: 'web-development',
-      tags: ['WordPress', 'Website Development', 'PHP'],
-      featured: true
-    },
-    {
-      id: 2,
-      title: 'I will build, rebuild full stack website development front end, backend, database',
-      image: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=400&h=250&fit=crop&auto=format',
-      freelancer: {
-        name: 'Mohin Uddin',
-        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=50&h=50&fit=crop&crop=face&auto=format',
-        level: 'Level 2',
-        rating: 5.0,
-        reviewsCount: 403,
-        isChoice: false
-      },
-      pricing: {
-        currency: 'PKR',
-        startingPrice: 44363
-      },
-      category: 'web-development',
-      tags: ['Full Stack', 'React', 'Node.js'],
-      featured: false,
-      videoConsultation: true
-    },
-    {
-      id: 3,
-      title: 'I will build or rebuild website development, business website, full stack website',
-      image: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&h=250&fit=crop&auto=format',
-      freelancer: {
-        name: 'Md Toki Osmani',
-        avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=50&h=50&fit=crop&crop=face&auto=format',
-        level: 'Level 2',
-        rating: 5.0,
-        reviewsCount: 135,
-        isChoice: false
-      },
-      pricing: {
-        currency: 'PKR',
-        startingPrice: 35491
-      },
-      category: 'web-development',
-      tags: ['Business Website', 'Full Stack'],
-      featured: false
-    },
-    {
-      id: 4,
-      title: 'I will build, rebuild website development as full stack web developer',
-      image: 'https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=400&h=250&fit=crop&auto=format',
-      freelancer: {
-        name: 'Mohammad Safilid',
-        avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=50&h=50&fit=crop&crop=face&auto=format',
-        level: 'Level 2',
-        rating: 4.9,
-        reviewsCount: 363,
-        isChoice: false
-      },
-      pricing: {
-        currency: 'PKR',
-        startingPrice: 44363
-      },
-      category: 'web-development',
-      tags: ['Full Stack', 'Web Development'],
-      featured: false,
-      videoConsultation: true
-    },
-    {
-      id: 5,
-      title: 'I will develop modern framer website, framer landing page, figma to framer',
-      image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=250&fit=crop&auto=format',
-      freelancer: {
-        name: 'Akibur Rahman',
-        avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=50&h=50&fit=crop&crop=face&auto=format',
-        level: 'Vetted Pro',
-        rating: 4.9,
-        reviewsCount: 278,
-        isChoice: false,
-        isVettedPro: true
-      },
-      pricing: {
-        currency: 'PKR',
-        startingPrice: 29000
-      },
-      category: 'design',
-      tags: ['Framer', 'Landing Page', 'Figma'],
-      featured: false
-    },
-    {
-      id: 6,
-      title: 'I will do website development as full stack developer PHP laravel react js node js',
-      image: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=400&h=250&fit=crop&auto=format',
-      freelancer: {
-        name: 'Yeasir Arafat',
-        avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=50&h=50&fit=crop&crop=face&auto=format',
-        level: 'Level 2',
-        rating: 4.8,
-        reviewsCount: 192,
-        isChoice: false
-      },
-      pricing: {
-        currency: 'PKR',
-        startingPrice: 25000
-      },
-      category: 'web-development',
-      tags: ['PHP', 'Laravel', 'React', 'Node.js'],
-      featured: false
-    },
-    {
-      id: 7,
-      title: 'I will do custom website development as full stack developer, front end and backend',
-      image: 'https://images.unsplash.com/photo-1487058792275-0ad4aaf24ca7?w=400&h=250&fit=crop&auto=format',
-      freelancer: {
-        name: 'Ibrahim K.',
-        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=50&h=50&fit=crop&crop=face&auto=format',
-        level: 'Level 2',
-        rating: 4.9,
-        reviewsCount: 89,
-        isChoice: false
-      },
-      pricing: {
-        currency: 'PKR',
-        startingPrice: 38000
-      },
-      category: 'web-development',
-      tags: ['Custom Website', 'Full Stack'],
-      featured: false
-    },
-    {
-      id: 8,
-      title: 'I will do website development as full stack web developer, front end and backend',
-      image: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=400&h=250&fit=crop&auto=format',
-      freelancer: {
-        name: 'Joy',
-        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=50&h=50&fit=crop&crop=face&auto=format',
-        level: 'Level 2',
-        rating: 4.7,
-        reviewsCount: 156,
-        isChoice: false
-      },
-      pricing: {
-        currency: 'PKR',
-        startingPrice: 32000
-      },
-      category: 'web-development',
-      tags: ['Full Stack', 'Frontend', 'Backend'],
-      featured: false
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  useEffect(() => {
+    filterAndSortProjects();
+  }, [projects, searchQuery, selectedCategory, sortBy]);
+
+  const fetchProjects = async () => {
+    try {
+      setIsLoading(true);
+      // Fetch all published jobs from clientJobs collection
+      const jobsQuery = query(
+        collection(db, 'clientJobs'),
+        where('status', '==', 'published')
+      );
+      
+      const querySnapshot = await getDocs(jobsQuery);
+      const projectsData: Project[] = [];
+
+      for (const jobDoc of querySnapshot.docs) {
+        const jobData = jobDoc.data();
+        
+        // Fetch client information
+        let clientName = 'Client';
+        let clientAvatar = '';
+        
+        if (jobData.clientId) {
+          try {
+            const clientDoc = await getDoc(doc(db, 'users', jobData.clientId));
+            if (clientDoc.exists()) {
+              const clientData = clientDoc.data();
+              clientName = `${clientData.firstName || ''} ${clientData.lastName || ''}`.trim() || 'Client';
+              clientAvatar = clientData.profilePictureUrl || '';
+            }
+          } catch (error) {
+            console.error('Error fetching client info:', error);
+          }
+        }
+
+        projectsData.push({
+          id: jobDoc.id,
+          title: jobData.jobTitle || 'Untitled Project',
+          description: jobData.jobDescription || '',
+          category: jobData.category || 'Other',
+          skills: jobData.skills || [],
+          budget: jobData.budget || { type: 'fixed', amount: 0 },
+          duration: jobData.projectDuration || 'Not specified',
+          experienceLevel: jobData.experienceLevel || 'Intermediate',
+          location: jobData.location || 'Remote',
+          postedDate: jobData.createdAt || new Date(),
+          clientId: jobData.clientId || '',
+          clientName,
+          clientAvatar,
+          status: jobData.status || 'published',
+          proposalsCount: jobData.proposalsCount || 0
+        });
+      }
+
+      setProjects(projectsData);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+    } finally {
+      setIsLoading(false);
     }
-  ];
+  };
 
-  const handleBookmark = (jobId: number) => {
-    setBookmarkedJobs(prev => 
-      prev.includes(jobId) 
-        ? prev.filter(id => id !== jobId)
-        : [...prev, jobId]
+  const filterAndSortProjects = () => {
+    let filtered = [...projects];
+
+    // Filter by search query
+    if (searchQuery) {
+      filtered = filtered.filter(project =>
+        project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        project.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        project.skills.some(skill => skill.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
+    }
+
+    // Filter by category
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(project => project.category === selectedCategory);
+    }
+
+    // Sort projects
+    switch (sortBy) {
+      case 'newest':
+        filtered.sort((a, b) => {
+          const dateA = a.postedDate?.seconds || 0;
+          const dateB = b.postedDate?.seconds || 0;
+          return dateB - dateA;
+        });
+        break;
+      case 'oldest':
+        filtered.sort((a, b) => {
+          const dateA = a.postedDate?.seconds || 0;
+          const dateB = b.postedDate?.seconds || 0;
+          return dateA - dateB;
+        });
+        break;
+      case 'budget-high':
+        filtered.sort((a, b) => {
+          const budgetA = a.budget.amount || a.budget.max || 0;
+          const budgetB = b.budget.amount || b.budget.max || 0;
+          return budgetB - budgetA;
+        });
+        break;
+      case 'budget-low':
+        filtered.sort((a, b) => {
+          const budgetA = a.budget.amount || a.budget.min || 0;
+          const budgetB = b.budget.amount || b.budget.min || 0;
+          return budgetA - budgetB;
+        });
+        break;
+      case 'proposals':
+        filtered.sort((a, b) => (b.proposalsCount || 0) - (a.proposalsCount || 0));
+        break;
+    }
+
+    setFilteredProjects(filtered);
+  };
+
+  const handleBookmark = (projectId: string) => {
+    setBookmarkedJobs(prev =>
+      prev.includes(projectId)
+        ? prev.filter(id => id !== projectId)
+        : [...prev, projectId]
     );
   };
 
-  const formatPrice = (price: number, currency: string) => {
-    return `${currency} ${price.toLocaleString()}`;
+  const formatBudget = (budget: Project['budget']) => {
+    if (budget.type === 'fixed' && budget.amount) {
+      return `$${budget.amount.toLocaleString()}`;
+    } else if (budget.type === 'hourly' && budget.min && budget.max) {
+      return `$${budget.min}-$${budget.max}/hr`;
+    }
+    return 'Budget not specified';
   };
 
-  const filteredJobs = jobs.filter(job => {
-    const matchesSearch = job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         job.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCategory = selectedCategory === 'all' || job.category === selectedCategory;
-    
-    return matchesSearch && matchesCategory;
-  });
+  const formatDate = (date: any) => {
+    if (!date) return 'Recently';
+    if (date.seconds) {
+      const projectDate = new Date(date.seconds * 1000);
+      const now = new Date();
+      const diffTime = Math.abs(now.getTime() - projectDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 0) return 'Today';
+      if (diffDays === 1) return 'Yesterday';
+      if (diffDays < 7) return `${diffDays} days ago`;
+      if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+      return `${Math.floor(diffDays / 30)} months ago`;
+    }
+    return 'Recently';
+  };
+
+  const handleSendProposal = (projectId: string) => {
+    navigate(`/freelancer/proposal-composer/${projectId}`);
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-20">
+    <div className="min-h-screen bg-[#ffeee3]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Find Your Next Project</h1>
-          <p className="text-gray-600">Discover opportunities that match your skills</p>
+          <h1 className="text-3xl font-bold text-[#2E2E2E] mb-2">Find Your Next Project</h1>
+          <p className="text-[#2E2E2E]/70">Discover opportunities that match your skills</p>
         </div>
 
         {/* Search and Filters */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+        <div className="bg-white rounded-lg shadow-sm border border-[#ffeee3] p-6 mb-8">
           <div className="flex flex-col lg:flex-row gap-4">
             {/* Search Bar */}
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#2E2E2E]/40 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Search for jobs..."
+                placeholder="Search for projects..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
+                className="w-full pl-10 pr-4 py-3 border border-[#ffeee3] rounded-lg focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
               />
             </div>
 
@@ -240,7 +248,7 @@ const JobFeed: React.FC = () => {
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
+                className="w-full px-4 py-3 border border-[#ffeee3] rounded-lg focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
               >
                 {categories.map(category => (
                   <option key={category.value} value={category.value}>
@@ -255,13 +263,13 @@ const JobFeed: React.FC = () => {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
+                className="w-full px-4 py-3 border border-[#ffeee3] rounded-lg focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent"
               >
-                <option value="best-selling">Best Selling</option>
-                <option value="newest">Newest</option>
-                <option value="price-low">Price: Low to High</option>
-                <option value="price-high">Price: High to Low</option>
-                <option value="rating">Highest Rated</option>
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="budget-high">Budget: High to Low</option>
+                <option value="budget-low">Budget: Low to High</option>
+                <option value="proposals">Most Proposals</option>
               </select>
             </div>
           </div>
@@ -269,110 +277,169 @@ const JobFeed: React.FC = () => {
 
         {/* Results Header */}
         <div className="flex items-center justify-between mb-6">
-          <p className="text-gray-600">
-            {filteredJobs.length.toLocaleString()}+ results
+          <p className="text-[#2E2E2E]/70">
+            {isLoading ? 'Loading...' : `${filteredProjects.length} ${filteredProjects.length === 1 ? 'project' : 'projects'} found`}
           </p>
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <span>Sort by:</span>
-            <button className="flex items-center gap-1 font-medium">
-              Best selling
-              <ChevronDown className="w-4 h-4" />
+        </div>
+
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex justify-center items-center py-16">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B00]"></div>
+            <span className="ml-3 text-[#2E2E2E]">Loading projects...</span>
+          </div>
+        )}
+
+        {/* No Projects Found */}
+        {!isLoading && filteredProjects.length === 0 && (
+          <div className="text-center py-16">
+            <Briefcase className="w-16 h-16 text-[#2E2E2E]/30 mx-auto mb-4" />
+            <p className="text-[#2E2E2E]/60 text-lg">No projects found matching your criteria.</p>
+            <button 
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedCategory('all');
+              }}
+              className="mt-4 text-[#FF6B00] hover:text-[#FF9F45] font-medium"
+            >
+              Clear filters
             </button>
           </div>
-        </div>
+        )}
 
-        {/* Job Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredJobs.map((job) => (
-            <div key={job.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow group">
-              {/* Job Image */}
-              <div className="relative">
-                <img
-                  src={job.image}
-                  alt={job.title}
-                  className="w-full h-48 object-cover"
-                />
-                <button
-                  onClick={() => handleBookmark(job.id)}
-                  className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-sm hover:bg-gray-50 transition-colors"
-                >
-                  <Heart 
-                    className={`w-4 h-4 ${bookmarkedJobs.includes(job.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} 
-                  />
-                </button>
-                
-                {/* Badges */}
-                {job.freelancer.isChoice && (
-                  <div className="absolute top-3 left-3 bg-[#FF6B00] text-white px-2 py-1 rounded text-xs font-medium">
-                    Fiverr's Choice
+        {/* Project Cards Grid */}
+        {!isLoading && filteredProjects.length > 0 && (
+          <div className="space-y-6">
+            {filteredProjects.map((project) => (
+              <div key={project.id} className="bg-white rounded-lg shadow-sm border border-[#ffeee3] overflow-hidden hover:shadow-md transition-shadow">
+                <div className="p-6">
+                  {/* Header with Client Info */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      {project.clientAvatar ? (
+                        <img
+                          src={project.clientAvatar}
+                          alt={project.clientName}
+                          className="w-12 h-12 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-[#FF6B00] flex items-center justify-center">
+                          <span className="text-white text-lg font-bold">
+                            {project.clientName?.charAt(0) || 'C'}
+                          </span>
+                        </div>
+                      )}
+                      <div>
+                        <h3 className="font-semibold text-[#2E2E2E]">{project.clientName}</h3>
+                        <p className="text-sm text-[#2E2E2E]/60">{formatDate(project.postedDate)}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleBookmark(project.id)}
+                      className="p-2 hover:bg-[#ffeee3] rounded-full transition-colors"
+                    >
+                      <Heart 
+                        className={`w-5 h-5 ${bookmarkedJobs.includes(project.id) ? 'fill-red-500 text-red-500' : 'text-[#2E2E2E]/40'}`} 
+                      />
+                    </button>
                   </div>
-                )}
-                
-                {job.freelancer.isVettedPro && (
-                  <div className="absolute top-3 left-3 bg-purple-600 text-white px-2 py-1 rounded text-xs font-medium">
-                    Vetted Pro
-                  </div>
-                )}
-                
-                {job.videoConsultation && (
-                  <div className="absolute bottom-3 left-3 bg-black/50 text-white px-2 py-1 rounded text-xs">
-                    🎥 Offers video consultations
-                  </div>
-                )}
-              </div>
 
-              {/* Job Content */}
-              <div className="p-4">
-                {/* Freelancer Info */}
-                <div className="flex items-center gap-2 mb-3">
-                  <img
-                    src={job.freelancer.avatar}
-                    alt={job.freelancer.name}
-                    className="w-6 h-6 rounded-full object-cover"
-                  />
-                  <span className="text-sm font-medium text-gray-900">{job.freelancer.name}</span>
-                  <span className="text-xs text-gray-500">{job.freelancer.level}</span>
-                </div>
+                  {/* Project Title */}
+                  <h2 className="text-xl font-bold text-[#2E2E2E] mb-3 hover:text-[#FF6B00] cursor-pointer">
+                    {project.title}
+                  </h2>
 
-                {/* Job Title */}
-                <Link 
-                  to={`/freelancer/job-details/${job.id}`}
-                  className="block"
-                >
-                  <h3 className="text-sm font-medium text-gray-900 mb-3 line-clamp-2 hover:text-[#FF6B00] transition-colors">
-                    {job.title}
-                  </h3>
-                </Link>
-
-                {/* Rating */}
-                <div className="flex items-center gap-1 mb-3">
-                  <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                  <span className="text-sm font-medium text-gray-900">
-                    {job.freelancer.rating}
-                  </span>
-                  <span className="text-sm text-gray-500">
-                    ({job.freelancer.reviewsCount})
-                  </span>
-                </div>
-
-                {/* Price */}
-                <div className="text-right">
-                  <p className="text-sm text-gray-600">From</p>
-                  <p className="text-lg font-bold text-gray-900">
-                    {formatPrice(job.pricing.startingPrice, job.pricing.currency)}
+                  {/* Project Description */}
+                  <p className="text-[#2E2E2E]/70 mb-4 line-clamp-2">
+                    {project.description}
                   </p>
+
+                  {/* Project Details */}
+                  <div className="flex flex-wrap gap-4 mb-4 text-sm text-[#2E2E2E]/70">
+                    <div className="flex items-center gap-1">
+                      <DollarSign className="w-4 h-4" />
+                      <span className="font-medium text-[#2E2E2E]">{formatBudget(project.budget)}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Clock className="w-4 h-4" />
+                      <span>{project.duration}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Briefcase className="w-4 h-4" />
+                      <span>{project.experienceLevel}</span>
+                    </div>
+                    {project.location && (
+                      <div className="flex items-center gap-1">
+                        <MapPin className="w-4 h-4" />
+                        <span>{project.location}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Skills Tags */}
+                  {project.skills && project.skills.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {project.skills.slice(0, 5).map((skill, index) => (
+                        <span
+                          key={index}
+                          className="bg-[#ffeee3] text-[#FF6B00] text-xs px-3 py-1 rounded-full"
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                      {project.skills.length > 5 && (
+                        <span className="bg-[#ffeee3]/50 text-[#2E2E2E]/70 text-xs px-3 py-1 rounded-full">
+                          +{project.skills.length - 5} more
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Category Badge */}
+                  <div className="mb-4">
+                    <span className="bg-[#FF6B00] text-white text-xs px-3 py-1 rounded-full">
+                      {project.category}
+                    </span>
+                  </div>
+
+                  {/* Footer with Proposals Count and Actions */}
+                  <div className="flex items-center justify-between pt-4 border-t border-[#ffeee3]">
+                    <div className="text-sm text-[#2E2E2E]/60">
+                      <span className="font-medium text-[#2E2E2E]">{project.proposalsCount || 0}</span> proposals
+                    </div>
+                    <div className="flex gap-3">
+                      <Link to={`/freelancer/job-details/${project.id}`}>
+                        <button className="flex items-center gap-2 px-4 py-2 border border-[#FF6B00] text-[#FF6B00] rounded-lg hover:bg-[#ffeee3] transition-colors">
+                          <Eye className="w-4 h-4" />
+                          View Project
+                        </button>
+                      </Link>
+                      <button
+                        onClick={() => handleSendProposal(project.id)}
+                        className="flex items-center gap-2 px-4 py-2 bg-[#FF6B00] hover:bg-[#FF9F45] text-white rounded-lg transition-colors"
+                      >
+                        <Send className="w-4 h-4" />
+                        Send Proposal
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
-        {/* Load More */}
-        <div className="flex justify-center mt-12">
-          <button className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-8 py-3 rounded-lg font-medium transition-colors">
-            Load More Jobs
-          </button>
-        </div>
+        {/* Load More Button */}
+        {!isLoading && filteredProjects.length > 0 && (
+          <div className="flex justify-center mt-12">
+            <button 
+              onClick={fetchProjects}
+              className="bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-8 py-3 rounded-lg font-medium transition-colors"
+            >
+              Refresh Projects
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
