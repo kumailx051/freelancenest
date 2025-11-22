@@ -73,13 +73,12 @@ const LoginPage: React.FC = () => {
         if (from) {
           // If user was trying to access a protected route, redirect them there
           navigate(from, { replace: true });
+        } else if (accountType === 'admin') {
+          navigate('/admin/dashboard');
         } else if (accountType === 'freelancer') {
           navigate('/freelancer/dashboard');
         } else if (accountType === 'client') {
           navigate('/client/dashboard');
-        } else if (accountType === 'admin') {
-          // Admin dashboard will be created later
-          navigate('/dashboard');
         } else {
           // Fallback for unknown account types
           navigate('/dashboard');
@@ -133,13 +132,12 @@ const LoginPage: React.FC = () => {
         if (from) {
           // If user was trying to access a protected route, redirect them there
           navigate(from, { replace: true });
+        } else if (accountType === 'admin') {
+          navigate('/admin/dashboard');
         } else if (accountType === 'freelancer') {
           navigate('/freelancer/dashboard');
         } else if (accountType === 'client') {
           navigate('/client/dashboard');
-        } else if (accountType === 'admin') {
-          // Admin dashboard will be created later
-          navigate('/dashboard');
         } else {
           navigate('/dashboard');
         }

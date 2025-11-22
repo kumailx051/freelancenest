@@ -14,7 +14,8 @@ import {
   X,
   FileText,
   CreditCard,
-  CheckCircle
+  CheckCircle,
+  Package
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { FreelanceFirestoreService } from '../../lib/firestoreService';
@@ -107,6 +108,7 @@ const ClientHeader: React.FC = () => {
     { name: 'Dashboard', href: '/client/dashboard', icon: Home },
     { name: 'My Jobs', href: '/client/my-jobs', icon: Briefcase },
     { name: 'Find Talent', href: '/client/browse-freelancers', icon: Users },
+    { name: 'Hire Gig', href: '/client/hire-gig', icon: Package },
   ];
 
   const profileMenuItems = [

@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { type User, onAuthStateChanged, signOut } from 'firebase/auth';
+import { type User, onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { AuthService } from '../lib/authService';
 import { FirestoreService } from '../lib/firestoreService';
 
 interface AuthContextType {
   currentUser: User | null;
-  userRole: 'client' | 'freelancer' | null;
+  userRole: 'client' | 'freelancer' | 'admin' | null;
   loading: boolean;
   logout: () => Promise<void>;
 }
@@ -32,7 +32,7 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [userRole, setUserRole] = useState<'client' | 'freelancer' | null>(null);
+  const [userRole, setUserRole] = useState<'client' | 'freelancer' | 'admin' | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -47,11 +47,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           
           // Check for accountType field (used in signup)
           if (userData && userData.accountType) {
-            setUserRole(userData.accountType as 'client' | 'freelancer');
+            setUserRole(userData.accountType as 'client' | 'freelancer' | 'admin');
           } 
           // Fallback to userType for backward compatibility
           else if (userData && userData.userType) {
-            setUserRole(userData.userType as 'client' | 'freelancer');
+            setUserRole(userData.userType as 'client' | 'freelancer' | 'admin');
           } 
           else {
             setUserRole(null);

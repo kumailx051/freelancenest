@@ -32,15 +32,39 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
 
   // Role-based access control
   if (requiredRole && userRole !== requiredRole) {
+    // If an admin tries to access freelancer routes, redirect to admin dashboard
+    if (userRole === 'admin' && requiredRole === 'freelancer') {
+      console.log('Admin attempting to access freelancer route, redirecting to admin dashboard');
+      return <Navigate to="/admin/dashboard" replace />;
+    }
+    
+    // If an admin tries to access client routes, redirect to admin dashboard
+    if (userRole === 'admin' && requiredRole === 'client') {
+      console.log('Admin attempting to access client route, redirecting to admin dashboard');
+      return <Navigate to="/admin/dashboard" replace />;
+    }
+    
     // If a client tries to access freelancer routes, redirect to client dashboard
     if (userRole === 'client' && requiredRole === 'freelancer') {
       console.log('Client attempting to access freelancer route, redirecting to client dashboard');
       return <Navigate to="/client/dashboard" replace />;
     }
     
+    // If a client tries to access admin routes, redirect to client dashboard
+    if (userRole === 'client' && requiredRole === 'admin') {
+      console.log('Client attempting to access admin route, redirecting to client dashboard');
+      return <Navigate to="/client/dashboard" replace />;
+    }
+    
     // If a freelancer tries to access client routes, redirect to freelancer dashboard
     if (userRole === 'freelancer' && requiredRole === 'client') {
       console.log('Freelancer attempting to access client route, redirecting to freelancer dashboard');
+      return <Navigate to="/freelancer/dashboard" replace />;
+    }
+    
+    // If a freelancer tries to access admin routes, redirect to freelancer dashboard
+    if (userRole === 'freelancer' && requiredRole === 'admin') {
+      console.log('Freelancer attempting to access admin route, redirecting to freelancer dashboard');
       return <Navigate to="/freelancer/dashboard" replace />;
     }
     

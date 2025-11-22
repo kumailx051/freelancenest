@@ -27,7 +27,6 @@ import FreelancerPlusPage from './pages/FreelancerPlusPage'
 
 // Resource Pages
 import HelpCenterPage from './pages/resources/HelpCenterPage'
-import FirebaseTestPage from './pages/FirebaseTestPage'
 
 // Company Pages
 import AboutUsPage from './pages/company/AboutUsPage'
@@ -36,6 +35,8 @@ import AboutUsPage from './pages/company/AboutUsPage'
 import ClientDashboard from './pages/client/ClientDashboard'
 import BrowseFreelancersPage from './pages/client/BrowseFreelancersPage'
 import FreelancerProfilePage from './pages/client/FreelancerProfilePage'
+import HireGigPage from './pages/client/HireGigPage'
+import GigDetailsPage from './pages/client/GigDetailsPage'
 import PostJobPage from './pages/client/PostJobPage'
 import MyJobsPage from './pages/client/MyJobsPage'
 import ShortlistComparePage from './pages/client/ShortlistComparePage'
@@ -120,6 +121,8 @@ function App() {
                 <Route path="dashboard" element={<ClientDashboard />} />
                 <Route path="browse-freelancers" element={<BrowseFreelancersPage />} />
                 <Route path="freelancer/:id" element={<FreelancerProfilePage />} />
+                <Route path="hire-gig" element={<HireGigPage />} />
+                <Route path="gig/:id" element={<GigDetailsPage />} />
                 <Route path="post-job" element={<PostJobPage />} />
                 <Route path="my-jobs" element={<MyJobsPage />} />
                 <Route path="shortlist-compare" element={<ShortlistComparePage />} />
@@ -197,7 +200,6 @@ function App() {
                 </ProtectedRoute>
               } />
               <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/firebase-test" element={<FirebaseTestPage />} />
               
               {/* Guidelines Routes */}
               
