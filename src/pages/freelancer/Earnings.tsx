@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   DollarSign,
   TrendingUp,
@@ -17,98 +17,203 @@ import {
   Banknote,
   ArrowRight
 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 
 const Earnings: React.FC = () => {
+  const { currentUser } = useAuth();
   const [selectedPeriod, setSelectedPeriod] = useState('30days');
   const [selectedFilter, setSelectedFilter] = useState('all');
+  const [loading, setLoading] = useState(true);
 
-  const stats = {
-    total: 48750.00,
-    thisMonth: 12400.00,
-    pending: 3250.00,
-    available: 9150.00,
-    lifetime: 156890.00,
-    avgMonthly: 10450.00
-  };
+  const [stats, setStats] = useState({
+    total: 0,
+    thisMonth: 0,
+    pending: 0,
+    available: 0,
+    lifetime: 0,
+    avgMonthly: 0
+  });
 
-  const earnings = [
-    {
-      id: 1,
-      client: 'TechCorp Solutions',
-      project: 'E-commerce Platform Development',
-      amount: 4500.00,
-      type: 'milestone',
-      status: 'completed',
-      date: '2024-01-15',
-      invoice: 'INV-2024-001',
-      paymentMethod: 'Bank Transfer',
-      description: 'Final milestone payment for React frontend development'
-    },
-    {
-      id: 2,
-      client: 'InnovateTech Inc',
-      project: 'SaaS Dashboard Creation',
-      amount: 2800.00,
-      type: 'hourly',
-      status: 'pending',
-      date: '2024-01-14',
-      invoice: 'INV-2024-002',
-      paymentMethod: 'PayPal',
-      description: 'Weekly payment for 56 hours worked'
-    },
-    {
-      id: 3,
-      client: 'DataViz Solutions',
-      project: 'Analytics Dashboard',
-      amount: 3200.00,
-      type: 'milestone',
-      status: 'completed',
-      date: '2024-01-12',
-      invoice: 'INV-2024-003',
-      paymentMethod: 'Stripe',
-      description: 'Milestone 2: Data visualization implementation'
-    },
-    {
-      id: 4,
-      client: 'MobileFirst Co',
-      project: 'React Native App',
-      amount: 1950.00,
-      type: 'milestone',
-      status: 'in-review',
-      date: '2024-01-10',
-      invoice: 'INV-2024-004',
-      paymentMethod: 'Bank Transfer',
-      description: 'Milestone 1: Core app functionality'
-    },
-    {
-      id: 5,
-      client: 'PerformancePro Ltd',
-      project: 'Performance Optimization',
-      amount: 2750.00,
-      type: 'hourly',
-      status: 'completed',
-      date: '2024-01-08',
-      invoice: 'INV-2024-005',
-      paymentMethod: 'PayPal',
-      description: 'Code optimization and performance improvements'
-    }
-  ];
+  const [earnings, setEarnings] = useState<any[]>([]);
+  const [topClients, setTopClients] = useState<any[]>([]);
+  const [monthlyData, setMonthlyData] = useState<Array<{ month: string; amount: number }>>([]);
 
-  const monthlyData = [
-    { month: 'Jul', amount: 8500 },
-    { month: 'Aug', amount: 11200 },
-    { month: 'Sep', amount: 9800 },
-    { month: 'Oct', amount: 13400 },
-    { month: 'Nov', amount: 10600 },
-    { month: 'Dec', amount: 12400 }
-  ];
+  // Fetch earnings data from Firebase
+  useEffect(() => {
+    const fetchEarningsData = async () => {
+      if (!currentUser) return;
 
-  const topClients = [
-    { name: 'TechCorp Solutions', earnings: 15400, projects: 3, rating: 4.9 },
-    { name: 'InnovateTech Inc', earnings: 12800, projects: 2, rating: 4.8 },
-    { name: 'DataViz Solutions', earnings: 8600, projects: 2, rating: 5.0 },
-    { name: 'PerformancePro Ltd', earnings: 7200, projects: 1, rating: 4.7 }
-  ];
+      try {
+        setLoading(true);
+        
+        // Fetch user's available balance from their profile
+        let userAvailableBalance = 0;
+        try {
+          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            userAvailableBalance = userData.availableBalance || 0;
+          }
+        } catch (error) {
+          console.error('Error fetching user balance:', error);
+        }
+        
+        // Fetch all orders for this freelancer
+        const ordersQuery = query(
+          collection(db, 'orders'),
+          where('sellerId', '==', currentUser.uid)
+        );
+        const ordersSnap = await getDocs(ordersQuery);
+        
+        let totalEarnings = 0;
+        let completedEarnings = 0;
+        let pendingEarnings = 0;
+        let thisMonthEarnings = 0;
+        const earningsData: any[] = [];
+        const clientEarningsMap = new Map<string, { name: string; earnings: number; projects: number; rating: number; avatar: string }>();
+        const monthlyEarningsMap = new Map<string, number>();
+        
+        const currentDate = new Date();
+        const currentMonth = currentDate.getMonth();
+        const currentYear = currentDate.getFullYear();
+        
+        // Initialize last 6 months
+        for (let i = 5; i >= 0; i--) {
+          const date = new Date(currentYear, currentMonth - i, 1);
+          const monthKey = date.toLocaleString('default', { month: 'short' });
+          monthlyEarningsMap.set(monthKey, 0);
+        }
+        
+        for (const docSnap of ordersSnap.docs) {
+          const orderData = docSnap.data();
+          const amount = orderData.totalAmount || orderData.price || 0;
+          
+          // Calculate totals
+          if (orderData.status === 'completed') {
+            completedEarnings += amount;
+            totalEarnings += amount;
+          } else if (orderData.status === 'delivered' || orderData.status === 'in_progress') {
+            pendingEarnings += amount;
+          }
+          
+          // Calculate this month's earnings
+          const orderDate = orderData.completedAt?.toDate ? orderData.completedAt.toDate() : 
+                           orderData.createdAt?.toDate ? orderData.createdAt.toDate() : new Date();
+          if (orderDate.getMonth() === currentMonth && orderDate.getFullYear() === currentYear) {
+            if (orderData.status === 'completed') {
+              thisMonthEarnings += amount;
+            }
+          }
+          
+          // Track monthly earnings for trend chart (last 6 months)
+          if (orderData.status === 'completed' && orderData.completedAt) {
+            const completedDate = orderData.completedAt.toDate ? orderData.completedAt.toDate() : new Date(orderData.completedAt);
+            const monthsDiff = (currentYear - completedDate.getFullYear()) * 12 + (currentMonth - completedDate.getMonth());
+            
+            if (monthsDiff >= 0 && monthsDiff < 6) {
+              const monthKey = completedDate.toLocaleString('default', { month: 'short' });
+              const currentAmount = monthlyEarningsMap.get(monthKey) || 0;
+              monthlyEarningsMap.set(monthKey, currentAmount + amount);
+            }
+          }
+          
+          // Fetch client and gig details
+          let clientName = 'Unknown Client';
+          let clientAvatar = '';
+          let gigTitle = 'Unknown Project';
+          
+          if (orderData.buyerId) {
+            try {
+              const clientDoc = await getDoc(doc(db, 'users', orderData.buyerId));
+              if (clientDoc.exists()) {
+                const clientData = clientDoc.data();
+                clientName = `${clientData.firstName || ''} ${clientData.lastName || ''}`.trim() || 'Unknown';
+                clientAvatar = clientData.profilePictureUrl || clientData.profile?.profilePictureUrl || '';
+                
+                // Track client earnings
+                const existing = clientEarningsMap.get(orderData.buyerId) || {
+                  name: clientName,
+                  earnings: 0,
+                  projects: 0,
+                  rating: 0,
+                  avatar: clientAvatar
+                };
+                existing.earnings += orderData.status === 'completed' ? amount : 0;
+                existing.projects += 1;
+                clientEarningsMap.set(orderData.buyerId, existing);
+              }
+            } catch (error) {
+              console.error('Error fetching client:', error);
+            }
+          }
+          
+          if (orderData.gigId) {
+            try {
+              const gigDoc = await getDoc(doc(db, 'gigs', orderData.gigId));
+              if (gigDoc.exists()) {
+                gigTitle = gigDoc.data().title || 'Unknown Project';
+              }
+            } catch (error) {
+              console.error('Error fetching gig:', error);
+            }
+          }
+          
+          earningsData.push({
+            id: docSnap.id,
+            client: clientName,
+            project: gigTitle,
+            amount: amount,
+            type: orderData.packageType === 'hourly' ? 'hourly' : 'milestone',
+            status: orderData.status === 'completed' ? 'completed' : 
+                   orderData.status === 'delivered' ? 'in-review' : 'pending',
+            date: orderDate.toLocaleDateString(),
+            invoice: orderData.orderNumber || 'N/A',
+            paymentMethod: orderData.paymentMethod || 'Card',
+            description: orderData.requirements || gigTitle
+          });
+        }
+        
+        // Sort earnings by date (most recent first)
+        earningsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        
+        // Convert client map to array and sort by earnings
+        const topClientsData = Array.from(clientEarningsMap.values())
+          .sort((a, b) => b.earnings - a.earnings)
+          .slice(0, 4)
+          .map(client => ({
+            ...client,
+            rating: 5.0 // Default rating, can be calculated from reviews if needed
+          }));
+        
+        // Convert monthly earnings map to array for chart
+        const monthlyChartData = Array.from(monthlyEarningsMap.entries()).map(([month, amount]) => ({
+          month,
+          amount: Math.round(amount)
+        }));
+        
+        setStats({
+          total: Math.round(totalEarnings * 100) / 100,
+          thisMonth: Math.round(thisMonthEarnings * 100) / 100,
+          pending: Math.round(pendingEarnings * 100) / 100,
+          available: Math.round(userAvailableBalance * 100) / 100,
+          lifetime: Math.round(totalEarnings * 100) / 100,
+          avgMonthly: Math.round((totalEarnings / 12) * 100) / 100
+        });
+        
+        setEarnings(earningsData);
+        setTopClients(topClientsData);
+        setMonthlyData(monthlyChartData);
+      } catch (error) {
+        console.error('Error fetching earnings data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEarningsData();
+  }, [currentUser]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -262,7 +367,18 @@ const Earnings: React.FC = () => {
               </div>
 
               <div className="space-y-4">
-                {earnings.map((earning) => (
+                {loading ? (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B00] mx-auto mb-4"></div>
+                    <p className="text-[#2E2E2E]/60">Loading earnings...</p>
+                  </div>
+                ) : earnings.length === 0 ? (
+                  <div className="text-center py-12">
+                    <DollarSign className="w-16 h-16 mx-auto mb-4 text-[#2E2E2E]/20" />
+                    <h3 className="text-lg font-semibold text-[#2E2E2E] mb-2">No Earnings Yet</h3>
+                    <p className="text-[#2E2E2E]/60">Complete projects to start earning!</p>
+                  </div>
+                ) : earnings.map((earning) => (
                   <div key={earning.id} className="border border-gray-100 rounded-lg p-4 hover:bg-gray-50 transition-colors">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center space-x-3">
@@ -307,11 +423,13 @@ const Earnings: React.FC = () => {
                 ))}
               </div>
 
-              <div className="text-center mt-6">
-                <button className="border border-[#FF6B00] text-[#FF6B00] hover:bg-[#ffeee3] px-6 py-2 rounded-lg font-medium transition-colors">
-                  Load More
-                </button>
-              </div>
+              {!loading && earnings.length > 0 && (
+                <div className="text-center mt-6">
+                  <button className="border border-[#FF6B00] text-[#FF6B00] hover:bg-[#ffeee3] px-6 py-2 rounded-lg font-medium transition-colors">
+                    Load More
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -329,10 +447,6 @@ const Earnings: React.FC = () => {
                   <FileText className="w-4 h-4 mr-2" />
                   Generate Invoice
                 </button>
-                <button className="w-full border border-gray-300 text-[#2E2E2E] hover:bg-gray-50 p-3 rounded-lg font-medium transition-colors flex items-center justify-center">
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  View Analytics
-                </button>
               </div>
             </div>
 
@@ -340,12 +454,24 @@ const Earnings: React.FC = () => {
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
               <h3 className="text-lg font-semibold text-[#2E2E2E] mb-4">Top Clients</h3>
               <div className="space-y-4">
-                {topClients.map((client, index) => (
+                {topClients.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-[#2E2E2E]/60 text-sm">No clients yet</p>
+                  </div>
+                ) : topClients.map((client, index) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center space-x-3">
-                      <div className="bg-[#FF6B00] text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium">
-                        {client.name.charAt(0)}
-                      </div>
+                      {client.avatar ? (
+                        <img 
+                          src={client.avatar} 
+                          alt={client.name}
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="bg-[#FF6B00] text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium">
+                          {client.name.charAt(0)}
+                        </div>
+                      )}
                       <div>
                         <p className="font-medium text-[#2E2E2E] text-sm">{client.name}</p>
                         <div className="flex items-center space-x-2 text-xs text-[#2E2E2E]/60">

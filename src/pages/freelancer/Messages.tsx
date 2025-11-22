@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Search,
   Send,
@@ -15,158 +15,307 @@ import {
   FileText,
   Smile
 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+
+import { collection, query, where, onSnapshot, serverTimestamp, getDocs, doc, getDoc, setDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 
 const Messages: React.FC = () => {
-  const [selectedChat, setSelectedChat] = useState(1);
+  const { currentUser } = useAuth();
+  const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [messageText, setMessageText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const conversations = [
-    {
-      id: 1,
-      client: {
-        name: 'Sarah Johnson',
-        avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop&crop=face&auto=format',
-        online: true,
-        company: 'TechCorp Solutions'
-      },
-      project: 'E-commerce Platform Development',
-      lastMessage: 'Great! The milestone has been approved. Can you start working on the payment integration?',
-      timestamp: '2 min ago',
-      unread: 3,
-      status: 'active',
-      lastSeen: 'online'
-    },
-    {
-      id: 2,
-      client: {
-        name: 'Michael Chen',
-        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face&auto=format',
-        online: false,
-        company: 'InnovateTech Inc'
-      },
-      project: 'SaaS Dashboard Creation',
-      lastMessage: 'The designs look perfect! When can we schedule a call to discuss the next phase?',
-      timestamp: '1 hour ago',
-      unread: 0,
-      status: 'active',
-      lastSeen: '1 hour ago'
-    },
-    {
-      id: 3,
-      client: {
-        name: 'Emily Rodriguez',
-        avatar: '/api/placeholder/50/50',
-        online: true,
-        company: 'DataViz Solutions'
-      },
-      project: 'Analytics Dashboard',
-      lastMessage: 'Thanks for the update. I\'ll review the charts and get back to you.',
-      timestamp: '3 hours ago',
-      unread: 1,
-      status: 'active',
-      lastSeen: 'online'
-    },
-    {
-      id: 4,
-      client: {
-        name: 'David Wilson',
-        avatar: '/api/placeholder/50/50',
-        online: false,
-        company: 'MobileFirst Co'
-      },
-      project: 'React Native App',
-      lastMessage: 'Can you send me the latest build for testing?',
-      timestamp: '1 day ago',
-      unread: 0,
-      status: 'active',
-      lastSeen: '8 hours ago'
-    },
-    {
-      id: 5,
-      client: {
-        name: 'Lisa Thompson',
-        avatar: '/api/placeholder/50/50',
-        online: false,
-        company: 'PerformancePro Ltd'
-      },
-      project: 'Performance Optimization',
-      lastMessage: 'The performance improvements are amazing! Great work.',
-      timestamp: '2 days ago',
-      unread: 0,
-      status: 'completed',
-      lastSeen: '1 day ago'
-    }
+  // Load conversations from Firebase
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const loadConversations = async () => {
+      try {
+        // Get all conversations where current user is involved
+        const conversationsRef = collection(db, 'conversations');
+        const q1 = query(conversationsRef, where('senderId', '==', currentUser.uid));
+        const q2 = query(conversationsRef, where('recipientId', '==', currentUser.uid));
+        
+        const [senderConversations, recipientConversations] = await Promise.all([
+          getDocs(q1),
+          getDocs(q2)
+        ]);
+        
+        const allConversations = [...senderConversations.docs, ...recipientConversations.docs]
+          .map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        // Fetch user profile pictures for all conversations
+        const conversationList = await Promise.all(allConversations.map(async (conv) => {
+          const isUserSender = conv.senderId === currentUser.uid;
+          const otherUserName = isUserSender ? conv.recipientName : conv.senderName;
+          const otherUserId = isUserSender ? conv.recipientId : conv.senderId;
+          
+          // Get avatar from conversation first, then try to fetch fresh one
+          let otherUserAvatar = isUserSender ? conv.recipientAvatar : conv.senderAvatar;
+          console.log('Avatar from conversation document:', otherUserAvatar);
+          
+          // Debug logging
+          console.log('Conversation data:', conv);
+          console.log('Is user sender:', isUserSender);
+          console.log('Other user ID:', otherUserId);
+          console.log('Other user name:', otherUserName);
+          console.log('Initial avatar from conversation:', otherUserAvatar);
+          
+          // Always fetch fresh profile picture from users collection
+          try {
+            console.log('Fetching user document for ID:', otherUserId);
+            const userDoc = await getDoc(doc(db, 'users', otherUserId));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              console.log('Found user document, data:', userData);
+              console.log('profilePictureUrl:', userData.profilePictureUrl);
+              console.log('photoURL:', userData.photoURL);
+              
+              // Check nested profile.profilePictureUrl first
+              if (userData.profile?.profilePictureUrl && userData.profile.profilePictureUrl.trim() !== '') {
+                otherUserAvatar = userData.profile.profilePictureUrl;
+                console.log('✓ Using profile.profilePictureUrl:', otherUserAvatar);
+              } else if (userData.profilePictureUrl && userData.profilePictureUrl.trim() !== '') {
+                otherUserAvatar = userData.profilePictureUrl;
+                console.log('✓ Using direct profilePictureUrl:', otherUserAvatar);
+              } else if (userData.photoURL && userData.photoURL.trim() !== '') {
+                otherUserAvatar = userData.photoURL;
+                console.log('✓ Using photoURL:', otherUserAvatar);
+              } else {
+                console.log('✗ No profile picture found in user data, available fields:', Object.keys(userData));
+                console.log('Profile object:', userData.profile);
+              }
+            } else {
+              console.log('✗ User document does not exist for:', otherUserId);
+              // Try checking if the user ID is correct
+              console.log('Available user documents might be different. Check Firebase console.');
+            }
+          } catch (error) {
+            console.log('✗ Error fetching user profile for:', otherUserId, error);
+          }
+          
+          // Final fallback logic
+          if (!otherUserAvatar || otherUserAvatar === '') {
+            // Try using the stored avatar from conversation as last resort
+            const conversationStoredAvatar = isUserSender ? conv.recipientAvatar : conv.senderAvatar;
+            if (conversationStoredAvatar && conversationStoredAvatar !== '') {
+              otherUserAvatar = conversationStoredAvatar;
+              console.log('✓ Using conversation stored avatar:', otherUserAvatar);
+            } else {
+              otherUserAvatar = '/api/placeholder/50/50';
+              console.log('✗ Using placeholder avatar');
+            }
+          }
+          
+          console.log('Final avatar URL for', otherUserName, ':', otherUserAvatar);
+          console.log('---');
+          
+          return {
+            id: conv.conversationId,
+            client: {
+              name: otherUserName,
+              avatar: otherUserAvatar,
+              online: false,
+              company: 'Client'
+            },
+            project: conv.gigTitle || 'General Discussion',
+            lastMessage: conv.lastMessage || 'No messages yet',
+            timestamp: formatTimestamp(conv.lastMessageTimestamp?.toDate() || conv.updatedAt?.toDate()),
+            unread: 0,
+            status: 'active',
+            lastSeen: 'recently',
+            otherUserId,
+            conversationData: conv
+          };
+        }));
+        
+        setConversations(conversationList.sort((a, b) => {
+          const aTime = a.conversationData.lastMessageTimestamp?.toDate() || a.conversationData.updatedAt?.toDate() || new Date(0);
+          const bTime = b.conversationData.lastMessageTimestamp?.toDate() || b.conversationData.updatedAt?.toDate() || new Date(0);
+          return bTime.getTime() - aTime.getTime();
+        }));
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error loading conversations:', error);
+        setIsLoading(false);
+      }
+    };
+
+    loadConversations();
+    
+    // Also reload when page becomes visible to get fresh profile pictures
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadConversations();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [currentUser]);
+
+  // Force refresh conversations every 30 seconds to get latest profile pictures
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const conversationsRef = collection(db, 'conversations');
+        const q1 = query(conversationsRef, where('senderId', '==', currentUser.uid));
+        const q2 = query(conversationsRef, where('recipientId', '==', currentUser.uid));
+        
+        const [senderConversations, recipientConversations] = await Promise.all([
+          getDocs(q1),
+          getDocs(q2)
+        ]);
+        
+        const allConversations = [...senderConversations.docs, ...recipientConversations.docs]
+          .map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        // Fetch user profile pictures for all conversations
+        const conversationList = await Promise.all(allConversations.map(async (conv) => {
+          const isUserSender = conv.senderId === currentUser.uid;
+          const otherUserName = isUserSender ? conv.recipientName : conv.senderName;
+          const otherUserId = isUserSender ? conv.recipientId : conv.senderId;
+          
+          // Always fetch fresh profile picture
+          let otherUserAvatar = '/api/placeholder/50/50';
+          try {
+            const userDoc = await getDoc(doc(db, 'users', otherUserId));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              // Check nested profile.profilePictureUrl first
+              if (userData.profile?.profilePictureUrl && userData.profile.profilePictureUrl.trim() !== '') {
+                otherUserAvatar = userData.profile.profilePictureUrl;
+              } else if (userData.profilePictureUrl && userData.profilePictureUrl.trim() !== '') {
+                otherUserAvatar = userData.profilePictureUrl;
+              } else if (userData.photoURL && userData.photoURL.trim() !== '') {
+                otherUserAvatar = userData.photoURL;
+              }
+            }
+          } catch (error) {
+            console.log('Could not fetch user profile for:', otherUserId);
+          }
+          
+          return {
+            id: conv.conversationId,
+            client: {
+              name: otherUserName,
+              avatar: otherUserAvatar,
+              online: false,
+              company: 'Client'
+            },
+            project: conv.gigTitle || 'General Discussion',
+            lastMessage: conv.lastMessage || 'No messages yet',
+            timestamp: formatTimestamp(conv.lastMessageTimestamp?.toDate() || conv.updatedAt?.toDate()),
+            unread: 0,
+            status: 'active',
+            lastSeen: 'recently',
+            otherUserId,
+            conversationData: conv
+          };
+        }));
+        
+        setConversations(conversationList.sort((a, b) => {
+          const aTime = a.conversationData.lastMessageTimestamp?.toDate() || a.conversationData.updatedAt?.toDate() || new Date(0);
+          const bTime = b.conversationData.lastMessageTimestamp?.toDate() || b.conversationData.updatedAt?.toDate() || new Date(0);
+          return bTime.getTime() - aTime.getTime();
+        }));
+      } catch (error) {
+        console.error('Error refreshing conversations:', error);
+      }
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [currentUser]);
+
+  // Load messages for selected conversation
+  useEffect(() => {
+    if (!selectedChat || !currentUser) return;
+
+    const conversationRef = doc(db, 'conversations', selectedChat);
+
+    const unsubscribe = onSnapshot(conversationRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const allMessages: any[] = [];
+        
+        // Combine sender and receiver messages
+        if (data.senderMessages) {
+          data.senderMessages.forEach((msg: any, index: number) => {
+            allMessages.push({
+              id: `sender_${index}`,
+              sender: data.senderId === currentUser.uid ? 'freelancer' : 'client',
+              content: msg.message,
+              timestamp: formatTime(msg.timestamp?.toDate() || new Date(msg.timestamp)),
+              status: 'read',
+              type: 'text',
+              rawTimestamp: msg.timestamp?.toDate() || new Date(msg.timestamp)
+            });
+          });
+        }
+        
+        if (data.receiverMessages) {
+          data.receiverMessages.forEach((msg: any, index: number) => {
+            allMessages.push({
+              id: `receiver_${index}`,
+              sender: data.recipientId === currentUser.uid ? 'freelancer' : 'client',
+              content: msg.message,
+              timestamp: formatTime(msg.timestamp?.toDate() || new Date(msg.timestamp)),
+              status: 'read',
+              type: 'text',
+              rawTimestamp: msg.timestamp?.toDate() || new Date(msg.timestamp)
+            });
+          });
+        }
+        
+        // Sort all messages by timestamp
+        allMessages.sort((a, b) => {
+          return a.rawTimestamp.getTime() - b.rawTimestamp.getTime();
+        });
+        
+        setMessages(allMessages);
+      } else {
+        setMessages([]);
+      }
+    }, (error) => {
+      console.error('Error loading messages:', error);
+    });
+
+    return () => unsubscribe();
+  }, [selectedChat, currentUser]);
+
+  const formatTimestamp = (timestamp: any) => {
+    if (!timestamp) return 'now';
+    const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    
+    if (minutes < 1) return 'now';
+    if (minutes < 60) return `${minutes} min ago`;
+    if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    return `${days} day${days > 1 ? 's' : ''} ago`;
+  };
+
+  const formatTime = (timestamp: any) => {
+    if (!timestamp) return '';
+    const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const staticConversations = [
   ];
 
-  const messages = [
-    {
-      id: 1,
-      sender: 'client',
-      content: 'Hi! I\'ve reviewed your proposal and I\'m impressed with your portfolio. I\'d like to move forward with the project.',
-      timestamp: '10:30 AM',
-      status: 'read',
-      type: 'text'
-    },
-    {
-      id: 2,
-      sender: 'freelancer',
-      content: 'Thank you! I\'m excited to work on this project. I have a few questions about the requirements to make sure I deliver exactly what you need.',
-      timestamp: '10:32 AM',
-      status: 'read',
-      type: 'text'
-    },
-    {
-      id: 3,
-      sender: 'freelancer',
-      content: '1. What\'s your preferred tech stack for the backend?\n2. Do you have any existing design guidelines?\n3. What\'s the expected timeline for each milestone?',
-      timestamp: '10:33 AM',
-      status: 'read',
-      type: 'text'
-    },
-    {
-      id: 4,
-      sender: 'client',
-      content: 'Great questions! Let me answer them:',
-      timestamp: '11:15 AM',
-      status: 'read',
-      type: 'text'
-    },
-    {
-      id: 5,
-      sender: 'client',
-      content: 'project-requirements.pdf',
-      timestamp: '11:16 AM',
-      status: 'read',
-      type: 'file',
-      fileName: 'project-requirements.pdf',
-      fileSize: '2.4 MB'
-    },
-    {
-      id: 6,
-      sender: 'client',
-      content: 'I\'ve attached the detailed requirements document. For the tech stack, we prefer Node.js with Express for the backend.',
-      timestamp: '11:17 AM',
-      status: 'read',
-      type: 'text'
-    },
-    {
-      id: 7,
-      sender: 'freelancer',
-      content: 'Perfect! I\'ve downloaded the requirements. Node.js and Express are exactly what I was thinking too. I\'ll prepare a detailed project timeline and send it over.',
-      timestamp: '2:45 PM',
-      status: 'delivered',
-      type: 'text'
-    },
-    {
-      id: 8,
-      sender: 'client',
-      content: 'Great! The milestone has been approved. Can you start working on the payment integration?',
-      timestamp: '3:20 PM',
-      status: 'delivered',
-      type: 'text'
-    }
-  ];
+
 
   const filteredConversations = conversations.filter(conv =>
     conv.client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -175,10 +324,93 @@ const Messages: React.FC = () => {
 
   const selectedConversation = conversations.find(conv => conv.id === selectedChat);
 
-  const handleSendMessage = () => {
-    if (messageText.trim()) {
-      // Add message logic here
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#ffeee3]/30 pt-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden h-[800px] flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B00] mx-auto mb-4"></div>
+              <p className="text-[#2E2E2E]/60">Loading conversations...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const handleSendMessage = async () => {
+    if (!messageText.trim() || !currentUser || !selectedChat) return;
+
+    try {
+      const selectedConversation = conversations.find(conv => conv.id === selectedChat);
+      if (!selectedConversation) return;
+
+      const conversationRef = doc(db, 'conversations', selectedChat);
+      const conversationSnap = await getDoc(conversationRef);
+      
+      const newMessage = {
+        message: messageText.trim(),
+        timestamp: new Date(),
+        isRead: false
+      };
+      
+      if (conversationSnap.exists()) {
+        const data = conversationSnap.data();
+        const isSender = currentUser.uid === data.senderId;
+        
+        // Fetch fresh profile pictures for both users
+        let senderAvatar = data.senderAvatar || '';
+        let recipientAvatar = data.recipientAvatar || '';
+        
+        try {
+          const senderDoc = await getDoc(doc(db, 'users', data.senderId));
+          if (senderDoc.exists()) {
+            const senderData = senderDoc.data();
+            senderAvatar = senderData.profilePictureUrl || senderData.photoURL || senderAvatar;
+          }
+        } catch (error) {
+          console.log('Could not fetch sender profile');
+        }
+        
+        try {
+          const recipientDoc = await getDoc(doc(db, 'users', data.recipientId));
+          if (recipientDoc.exists()) {
+            const recipientData = recipientDoc.data();
+            recipientAvatar = recipientData.profilePictureUrl || recipientData.photoURL || recipientAvatar;
+          }
+        } catch (error) {
+          console.log('Could not fetch recipient profile');
+        }
+        
+        if (isSender) {
+          // Add to sender messages
+          await updateDoc(conversationRef, {
+            senderMessages: arrayUnion(newMessage),
+            senderAvatar: senderAvatar,
+            recipientAvatar: recipientAvatar,
+            lastMessage: messageText.trim(),
+            lastMessageTimestamp: new Date(),
+            updatedAt: new Date()
+          });
+        } else {
+          // Add to receiver messages
+          await updateDoc(conversationRef, {
+            receiverMessages: arrayUnion(newMessage),
+            senderAvatar: senderAvatar,
+            recipientAvatar: recipientAvatar,
+            lastMessage: messageText.trim(),
+            lastMessageTimestamp: new Date(),
+            updatedAt: new Date()
+          });
+        }
+      }
+      
       setMessageText('');
+      
+    } catch (error) {
+      console.error('Error sending message:', error);
+      alert('Failed to send message. Please try again.');
     }
   };
 
@@ -239,7 +471,12 @@ const Messages: React.FC = () => {
 
               {/* Conversations List */}
               <div className="flex-1 overflow-y-auto">
-                {filteredConversations.map((conversation) => (
+                {conversations.length === 0 ? (
+                  <div className="p-4 text-center text-[#2E2E2E]/60">
+                    <p>No conversations yet</p>
+                  </div>
+                ) : (
+                  filteredConversations.map((conversation) => (
                   <div
                     key={conversation.id}
                     onClick={() => setSelectedChat(conversation.id)}
@@ -286,7 +523,8 @@ const Messages: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                ))}
+                ))
+                )}
               </div>
             </div>
 

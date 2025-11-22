@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Star, MapPin, Search, ChevronDown } from 'lucide-react';
 import { FreelanceFirestoreService } from '../../lib/firestoreService';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 
 interface Freelancer {
   id: string;
@@ -80,18 +82,50 @@ const BrowseFreelancersPage: React.FC = () => {
           (user.firstName && user.lastName && user.profileTitle)
         );
 
-        // Transform data for display
-        const transformedFreelancers: Freelancer[] = completedFreelancers.map(user => ({
-          ...user,
-          id: user.id || user.uid,
-          rating: user.rating || (4 + Math.random()), // Mock rating if not available
-          reviewCount: user.reviewCount || Math.floor(Math.random() * 50) + 5,
-          completedProjects: user.completedProjects || Math.floor(Math.random() * 20) + 1,
-          hourlyRate: user.hourlyRate || (25 + Math.floor(Math.random() * 75))
-        } as Freelancer));
+        // Fetch real stats for each freelancer
+        const freelancersWithStats = await Promise.all(
+          completedFreelancers.map(async (user) => {
+            // Fetch reviews for this freelancer
+            const reviewsQuery = query(
+              collection(db, 'reviews'),
+              where('sellerId', '==', user.uid)
+            );
+            const reviewsSnap = await getDocs(reviewsQuery);
+            
+            let avgRating = 0;
+            let reviewCount = 0;
+            
+            if (reviewsSnap.size > 0) {
+              let totalRating = 0;
+              reviewsSnap.forEach((doc) => {
+                totalRating += doc.data().rating || 0;
+              });
+              avgRating = totalRating / reviewsSnap.size;
+              reviewCount = reviewsSnap.size;
+            }
 
-        setFreelancers(transformedFreelancers);
-        setFilteredFreelancers(transformedFreelancers);
+            // Fetch orders to count completed projects
+            const ordersQuery = query(
+              collection(db, 'orders'),
+              where('sellerId', '==', user.uid),
+              where('status', '==', 'completed')
+            );
+            const ordersSnap = await getDocs(ordersQuery);
+            const completedProjects = ordersSnap.size;
+
+            return {
+              ...user,
+              id: user.id || user.uid,
+              rating: avgRating,
+              reviewCount: reviewCount,
+              completedProjects: completedProjects,
+              hourlyRate: user.hourlyRate || 0
+            } as Freelancer;
+          })
+        );
+
+        setFreelancers(freelancersWithStats);
+        setFilteredFreelancers(freelancersWithStats);
       } catch (err) {
         console.error('Error loading freelancers:', err);
         setError('Failed to load freelancers. Please try again.');

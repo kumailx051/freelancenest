@@ -17,15 +17,18 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useMessages } from '../../contexts/MessageContext';
 import { FreelanceFirestoreService } from '../../lib/firestoreService';
 
 const FreelancerHeader: React.FC = () => {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
+  const [isMessageMenuOpen, setIsMessageMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, logout } = useAuth();
+  const { unreadMessageCount, conversations } = useMessages();
   const [freelancerData, setFreelancerData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -48,6 +51,21 @@ const FreelancerHeader: React.FC = () => {
 
     loadFreelancerData();
   }, [currentUser]);
+
+  // Handle click outside to close dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.dropdown-container')) {
+        setIsProfileMenuOpen(false);
+        setIsNotificationMenuOpen(false);
+        setIsMessageMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Sample notifications data
   const notifications = [
@@ -192,7 +210,7 @@ const FreelancerHeader: React.FC = () => {
           {/* Right side */}
           <div className="flex items-center space-x-3">
             {/* Notifications */}
-            <div className="relative">
+            <div className="relative dropdown-container">
               <button
                 onClick={() => setIsNotificationMenuOpen(!isNotificationMenuOpen)}
                 className="p-2 text-gray-600 hover:text-[#FF6B00] hover:bg-[#ffeee3] rounded-md transition-colors relative"
@@ -252,16 +270,99 @@ const FreelancerHeader: React.FC = () => {
             </div>
 
             {/* Messages */}
-            <Link
-              to="/freelancer/messages"
-              className="p-2 text-gray-600 hover:text-[#FF6B00] hover:bg-[#ffeee3] rounded-md transition-colors relative"
-            >
-              <MessageSquare className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full"></span>
-            </Link>
+            <div className="relative dropdown-container">
+              <button
+                onClick={() => setIsMessageMenuOpen(!isMessageMenuOpen)}
+                className="p-2 text-gray-600 hover:text-[#FF6B00] hover:bg-[#ffeee3] rounded-md transition-colors relative"
+              >
+                <MessageSquare className="w-5 h-5" />
+                {unreadMessageCount > 0 && (
+                  <span className="absolute top-1 right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Messages Dropdown */}
+              {isMessageMenuOpen && (
+                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                  <div className="px-4 py-2 border-b border-gray-100">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-[#2E2E2E]">Messages</h3>
+                      {unreadMessageCount > 0 && (
+                        <span className="text-xs text-[#FF6B00] bg-[#ffeee3] px-2 py-1 rounded-full">
+                          {unreadMessageCount} new
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {conversations.length === 0 ? (
+                      <div className="px-4 py-8 text-center text-gray-500">
+                        <MessageSquare className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                        <p>No messages yet</p>
+                      </div>
+                    ) : (
+                      conversations.slice(0, 5).map((conversation) => {
+                        const otherParticipantId = conversation.participants.find(id => id !== currentUser?.uid);
+                        const otherParticipantName = otherParticipantId ? conversation.participantNames[otherParticipantId] : 'Unknown';
+                        const otherParticipantAvatar = otherParticipantId ? conversation.participantAvatars[otherParticipantId] : '';
+                        const unreadCount = conversation.unreadCount[currentUser?.uid || ''] || 0;
+                        
+                        return (
+                          <div
+                            key={conversation.id}
+                            className={`px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 ${unreadCount > 0 ? 'bg-blue-50' : ''}`}
+                            onClick={() => {
+                              setIsMessageMenuOpen(false);
+                              navigate('/freelancer/messages');
+                            }}
+                          >
+                            <div className="flex items-start space-x-3">
+                              <div className="flex-shrink-0">
+                                {otherParticipantAvatar ? (
+                                  <img src={otherParticipantAvatar} alt={otherParticipantName} className="w-10 h-10 rounded-full" />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-full bg-[#FF6B00] flex items-center justify-center text-white font-medium">
+                                    {otherParticipantName.charAt(0).toUpperCase()}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-sm font-medium text-[#2E2E2E] truncate">{otherParticipantName}</p>
+                                  {unreadCount > 0 && (
+                                    <span className="bg-[#FF6B00] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center ml-2">
+                                      {unreadCount}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-500 truncate mt-1">{conversation.lastMessage}</p>
+                                {conversation.gigTitle && (
+                                  <p className="text-xs text-[#FF6B00] truncate mt-1">About: {conversation.gigTitle}</p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                  <div className="px-4 py-2 border-t border-gray-100">
+                    <Link
+                      to="/freelancer/messages"
+                      className="text-sm text-[#FF6B00] hover:underline"
+                      onClick={() => setIsMessageMenuOpen(false)}
+                    >
+                      View all messages
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Profile Dropdown */}
-            <div className="relative">
+            <div className="relative dropdown-container">
               <button
                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
                 className="flex items-center space-x-2 p-2 text-gray-600 hover:text-[#FF6B00] hover:bg-[#ffeee3] rounded-md transition-colors"
@@ -350,17 +451,6 @@ const FreelancerHeader: React.FC = () => {
           </div>
         )}
       </div>
-
-      {/* Click outside to close menus */}
-      {(isProfileMenuOpen || isNotificationMenuOpen) && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => {
-            setIsProfileMenuOpen(false);
-            setIsNotificationMenuOpen(false);
-          }}
-        />
-      )}
     </header>
   );
 };

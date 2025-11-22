@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { FirestoreService } from '../../lib/firestoreService';
 import { uploadImage } from '../../lib/imageUpload';
+import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 
 const ClientProfilePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -11,6 +13,8 @@ const ClientProfilePage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const { currentUser } = useAuth();
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [recentProjects, setRecentProjects] = useState<any[]>([]);
 
   const [profile, setProfile] = useState<any>({
     personalInfo: {
@@ -120,6 +124,226 @@ const ClientProfilePage: React.FC = () => {
     };
 
     fetchProfile();
+  }, [currentUser]);
+
+  // Fetch client statistics from Firebase
+  useEffect(() => {
+    const fetchClientStats = async () => {
+      if (!currentUser) return;
+
+      try {
+        // Fetch all orders for this client
+        const ordersQuery = query(
+          collection(db, 'orders'),
+          where('buyerId', '==', currentUser.uid)
+        );
+        const ordersSnap = await getDocs(ordersQuery);
+        
+        let totalSpent = 0;
+        let completedProjects = 0;
+        const freelancerIds = new Set<string>();
+        
+        ordersSnap.forEach((doc) => {
+          const orderData = doc.data();
+          if (orderData.status === 'completed') {
+            completedProjects++;
+            totalSpent += orderData.totalAmount || orderData.price || 0;
+          }
+          if (orderData.sellerId) {
+            freelancerIds.add(orderData.sellerId);
+          }
+        });
+
+        const avgProjectValue = completedProjects > 0 ? totalSpent / completedProjects : 0;
+        const successRate = ordersSnap.size > 0 ? (completedProjects / ordersSnap.size) * 100 : 0;
+        
+        // Calculate on-time completion (orders delivered before expected date)
+        let onTimeCount = 0;
+        ordersSnap.forEach((doc) => {
+          const orderData = doc.data();
+          if (orderData.status === 'completed' && orderData.deliveredAt && orderData.expectedDeliveryDate) {
+            const deliveredDate = orderData.deliveredAt.toDate ? orderData.deliveredAt.toDate() : new Date(orderData.deliveredAt);
+            const expectedDate = orderData.expectedDeliveryDate.toDate ? orderData.expectedDeliveryDate.toDate() : new Date(orderData.expectedDeliveryDate);
+            if (deliveredDate <= expectedDate) {
+              onTimeCount++;
+            }
+          }
+        });
+        const onTimeCompletion = completedProjects > 0 ? (onTimeCount / completedProjects) * 100 : 0;
+
+        setProfile((prev: any) => ({
+          ...prev,
+          stats: {
+            projectsCompleted: completedProjects,
+            totalSpent: Math.round(totalSpent * 100) / 100,
+            avgProjectValue: Math.round(avgProjectValue * 100) / 100,
+            successRate: Math.round(successRate),
+            onTimeCompletion: Math.round(onTimeCompletion),
+            freelancersWorkedWith: freelancerIds.size
+          }
+        }));
+      } catch (error) {
+        console.error('Error fetching client stats:', error);
+      }
+    };
+
+    fetchClientStats();
+  }, [currentUser]);
+
+  // Fetch reviews given by client
+  useEffect(() => {
+    const fetchReviews = async () => {
+      if (!currentUser) return;
+
+      try {
+        const reviewsQuery = query(
+          collection(db, 'reviews'),
+          where('clientId', '==', currentUser.uid)
+        );
+        const reviewsSnap = await getDocs(reviewsQuery);
+        const reviewsData: any[] = [];
+
+        for (const docSnap of reviewsSnap.docs) {
+          const reviewData = docSnap.data();
+          let freelancerName = 'Unknown';
+          let gigTitle = 'Unknown Project';
+
+          // Fetch freelancer name
+          if (reviewData.freelancerId) {
+            try {
+              const userDoc = await getDoc(doc(db, 'users', reviewData.freelancerId));
+              if (userDoc.exists()) {
+                const userData = userDoc.data();
+                freelancerName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'Unknown';
+              }
+            } catch (error) {
+              console.error('Error fetching freelancer:', error);
+            }
+          }
+
+          // Fetch gig title
+          if (reviewData.gigId) {
+            try {
+              const gigDoc = await getDoc(doc(db, 'gigs', reviewData.gigId));
+              if (gigDoc.exists()) {
+                const gigData = gigDoc.data();
+                gigTitle = gigData.title || 'Unknown Project';
+              }
+            } catch (error) {
+              console.error('Error fetching gig:', error);
+            }
+          }
+
+          reviewsData.push({
+            id: docSnap.id,
+            freelancer: freelancerName,
+            project: gigTitle,
+            rating: reviewData.rating || 0,
+            date: reviewData.createdAt?.toDate ? reviewData.createdAt.toDate().toLocaleDateString() : 'Unknown',
+            comment: reviewData.reviewText || ''
+          });
+        }
+
+        // Sort by date (most recent first)
+        reviewsData.sort((a, b) => {
+          const dateA = new Date(a.date).getTime();
+          const dateB = new Date(b.date).getTime();
+          return dateB - dateA;
+        });
+
+        setReviews(reviewsData);
+      } catch (error) {
+        console.error('Error fetching reviews:', error);
+      }
+    };
+
+    fetchReviews();
+  }, [currentUser]);
+
+  // Fetch recent projects/orders
+  useEffect(() => {
+    const fetchRecentProjects = async () => {
+      if (!currentUser) return;
+
+      try {
+        const ordersQuery = query(
+          collection(db, 'orders'),
+          where('buyerId', '==', currentUser.uid)
+        );
+        const ordersSnap = await getDocs(ordersQuery);
+        const projectsData: any[] = [];
+
+        for (const docSnap of ordersSnap.docs) {
+          const orderData = docSnap.data();
+          let freelancerName = 'Unknown';
+          let gigTitle = 'Unknown Project';
+
+          // Fetch freelancer name
+          if (orderData.sellerId) {
+            try {
+              const userDoc = await getDoc(doc(db, 'users', orderData.sellerId));
+              if (userDoc.exists()) {
+                const userData = userDoc.data();
+                freelancerName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'Unknown';
+              }
+            } catch (error) {
+              console.error('Error fetching freelancer:', error);
+            }
+          }
+
+          // Fetch gig title
+          if (orderData.gigId) {
+            try {
+              const gigDoc = await getDoc(doc(db, 'gigs', orderData.gigId));
+              if (gigDoc.exists()) {
+                const gigData = gigDoc.data();
+                gigTitle = gigData.title || 'Unknown Project';
+              }
+            } catch (error) {
+              console.error('Error fetching gig:', error);
+            }
+          }
+
+          // Calculate completion percentage
+          let completion = 0;
+          if (orderData.status === 'completed') {
+            completion = 100;
+          } else if (orderData.status === 'delivered') {
+            completion = 90;
+          } else if (orderData.status === 'in_progress') {
+            completion = 50;
+          } else if (orderData.status === 'accepted') {
+            completion = 25;
+          }
+
+          projectsData.push({
+            id: docSnap.id,
+            title: gigTitle,
+            freelancer: freelancerName,
+            status: orderData.status === 'completed' ? 'Completed' : 
+                    orderData.status === 'delivered' ? 'Under Review' : 
+                    orderData.status === 'in_progress' ? 'In Progress' : 'Pending',
+            budget: orderData.totalAmount || orderData.price || 0,
+            completion: completion,
+            startDate: orderData.createdAt?.toDate ? orderData.createdAt.toDate().toLocaleDateString() : 'Unknown'
+          });
+        }
+
+        // Sort by date (most recent first)
+        projectsData.sort((a, b) => {
+          const dateA = new Date(a.startDate).getTime();
+          const dateB = new Date(b.startDate).getTime();
+          return dateB - dateA;
+        });
+
+        // Take only the 5 most recent
+        setRecentProjects(projectsData.slice(0, 5));
+      } catch (error) {
+        console.error('Error fetching recent projects:', error);
+      }
+    };
+
+    fetchRecentProjects();
   }, [currentUser]);
 
   // Handle profile image upload
@@ -238,63 +462,6 @@ const ClientProfilePage: React.FC = () => {
       setIsEditing(true);
     }
   };
-
-  const recentProjects = [
-    {
-      id: '1',
-      title: 'E-commerce Website Development',
-      freelancer: 'John Smith',
-      status: 'In Progress',
-      budget: 5000,
-      completion: 65,
-      startDate: '2024-01-01'
-    },
-    {
-      id: '2',
-      title: 'Mobile App UI Design',
-      freelancer: 'Sarah Johnson',
-      status: 'Under Review',
-      budget: 3000,
-      completion: 90,
-      startDate: '2023-12-15'
-    },
-    {
-      id: '3',
-      title: 'Brand Identity Package',
-      freelancer: 'Mike Chen',
-      status: 'Completed',
-      budget: 2500,
-      completion: 100,
-      startDate: '2023-11-20'
-    }
-  ];
-
-  const reviews = [
-    {
-      id: '1',
-      freelancer: 'John Smith',
-      project: 'E-commerce Platform',
-      rating: 5,
-      date: '2023-12-10',
-      comment: 'Excellent communication and delivered exactly what we needed. Will definitely work with John again!'
-    },
-    {
-      id: '2',
-      freelancer: 'Emma Wilson',
-      project: 'Content Marketing Strategy',
-      rating: 5,
-      date: '2023-11-28',
-      comment: 'Very professional and delivered high-quality content on time. Great experience overall.'
-    },
-    {
-      id: '3',
-      freelancer: 'David Brown',
-      project: 'Logo Design',
-      rating: 4,
-      date: '2023-11-15',
-      comment: 'Good work, though required a few revisions to get it perfect. Final result was great.'
-    }
-  ];
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -706,20 +873,35 @@ const ClientProfilePage: React.FC = () => {
                 <div className="p-6 border-b border-[#ffeee3]">
                   <h2 className="text-xl font-bold text-[#2E2E2E]">Recent Projects</h2>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-[#ffeee3]/30">
-                      <tr>
-                        <th className="text-left p-4 font-medium text-[#2E2E2E]">Project</th>
-                        <th className="text-left p-4 font-medium text-[#2E2E2E]">Freelancer</th>
-                        <th className="text-left p-4 font-medium text-[#2E2E2E]">Status</th>
-                        <th className="text-left p-4 font-medium text-[#2E2E2E]">Budget</th>
-                        <th className="text-left p-4 font-medium text-[#2E2E2E]">Progress</th>
-                        <th className="text-left p-4 font-medium text-[#2E2E2E]">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recentProjects.map((project) => (
+                {recentProjects.length === 0 ? (
+                  <div className="p-12 text-center">
+                    <svg className="w-16 h-16 mx-auto mb-4 text-[#2E2E2E]/20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <h3 className="text-xl font-semibold text-[#2E2E2E] mb-2">No Projects Yet</h3>
+                    <p className="text-[#2E2E2E]/60 mb-4">You haven't hired any freelancers yet. Start browsing talent to get started!</p>
+                    <Link
+                      to="/find-talent"
+                      className="inline-block bg-[#FF6B00] hover:bg-[#FF9F45] text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                    >
+                      Find Talent
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-[#ffeee3]/30">
+                        <tr>
+                          <th className="text-left p-4 font-medium text-[#2E2E2E]">Project</th>
+                          <th className="text-left p-4 font-medium text-[#2E2E2E]">Freelancer</th>
+                          <th className="text-left p-4 font-medium text-[#2E2E2E]">Status</th>
+                          <th className="text-left p-4 font-medium text-[#2E2E2E]">Budget</th>
+                          <th className="text-left p-4 font-medium text-[#2E2E2E]">Progress</th>
+                          <th className="text-left p-4 font-medium text-[#2E2E2E]">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {recentProjects.map((project) => (
                         <tr key={project.id} className="border-t border-[#ffeee3]">
                           <td className="p-4">
                             <div className="font-medium text-[#2E2E2E]">{project.title}</div>
@@ -752,17 +934,26 @@ const ClientProfilePage: React.FC = () => {
                             </Link>
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Reviews Given Tab */}
             {activeTab === 'reviews' && (
               <div className="space-y-6">
-                {reviews.map((review) => (
+                {reviews.length === 0 ? (
+                  <div className="bg-white rounded-xl shadow-sm p-12 border border-[#ffeee3] text-center">
+                    <svg className="w-16 h-16 mx-auto mb-4 text-[#2E2E2E]/20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                    </svg>
+                    <h3 className="text-xl font-semibold text-[#2E2E2E] mb-2">No Reviews Yet</h3>
+                    <p className="text-[#2E2E2E]/60">You haven't given any reviews yet. Complete a project to leave a review!</p>
+                  </div>
+                ) : reviews.map((review) => (
                   <div key={review.id} className="bg-white rounded-xl shadow-sm p-6 border border-[#ffeee3]">
                     <div className="flex flex-col md:flex-row md:items-start justify-between mb-4">
                       <div className="mb-4 md:mb-0">

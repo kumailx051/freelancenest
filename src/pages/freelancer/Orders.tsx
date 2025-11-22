@@ -1,110 +1,131 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import { useAuth } from '../../contexts/AuthContext';
+
+interface Order {
+  id: string;
+  orderNumber: string;
+  gigId: string;
+  gigTitle: string;
+  buyerId: string;
+  buyerName: string;
+  buyerEmail: string;
+  packageType: string;
+  packageTitle: string;
+  price: number;
+  serviceFee: number;
+  totalAmount: number;
+  status: 'pending' | 'accepted' | 'in_progress' | 'revision_requested' | 'completed' | 'cancelled' | 'rejected';
+  paymentStatus: 'paid' | 'pending' | 'failed' | 'refunded';
+  deliveryTime: string;
+  revisions: string;
+  requirements: string;
+  createdAt: any;
+  expectedDeliveryDate: any;
+  conversationId: string;
+  revisionCount: number;
+  maxRevisions: number;
+  features?: string[];
+}
 
 const Orders: React.FC = () => {
+  const { currentUser } = useAuth();
   const [activeFilter, setActiveFilter] = useState('all');
-  const [selectedOrder, setSelectedOrder] = useState<number | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const orders = [
-    {
-      id: 1,
-      gigTitle: 'I will develop a responsive React web application',
-      buyerName: 'John Smith',
-      buyerAvatar: '👤',
-      package: 'Standard Package',
-      price: 300,
-      status: 'in-progress',
-      orderDate: '2024-01-10',
-      dueDate: '2024-01-17',
-      deliveryTime: '7 days',
-      progress: 65,
-      requirements: [
-        { question: 'What is your business name?', answer: 'TechStart Solutions' },
-        { question: 'Do you have a logo?', answer: 'Yes, I will provide it' },
-        { question: 'Preferred colors?', answer: 'Blue and white theme' }
-      ],
-      messages: 12,
-      revisions: 1,
-      maxRevisions: 3,
-      files: ['design-mockup.pdf', 'requirements.docx']
-    },
-    {
-      id: 2,
-      gigTitle: 'I will design a modern logo for your business',
-      buyerName: 'Sarah Johnson',
-      buyerAvatar: '👩',
-      package: 'Premium Package',
-      price: 150,
-      status: 'delivered',
-      orderDate: '2024-01-05',
-      dueDate: '2024-01-08',
-      deliveryTime: '3 days',
-      progress: 100,
-      deliveredDate: '2024-01-08',
-      requirements: [
-        { question: 'Company name?', answer: 'Creative Studio' },
-        { question: 'Industry?', answer: 'Design Agency' }
-      ],
-      messages: 8,
-      revisions: 0,
-      maxRevisions: 2,
-      files: ['logo-final.ai', 'logo-variants.pdf'],
-      rating: 5,
-      review: 'Excellent work! Very professional and delivered on time.'
-    },
-    {
-      id: 3,
-      gigTitle: 'I will create a complete brand identity package',
-      buyerName: 'Mike Chen',
-      buyerAvatar: '👨',
-      package: 'Basic Package',
-      price: 200,
-      status: 'new',
-      orderDate: '2024-01-15',
-      dueDate: '2024-01-20',
-      deliveryTime: '5 days',
-      progress: 0,
-      requirements: [
-        { question: 'Business description?', answer: 'Tech startup focused on AI solutions' },
-        { question: 'Target audience?', answer: 'Business professionals and developers' },
-        { question: 'Inspiration examples?', answer: 'Modern, clean, technology-focused brands' }
-      ],
-      messages: 3,
-      revisions: 0,
-      maxRevisions: 2,
-      files: []
-    },
-    {
-      id: 4,
-      gigTitle: 'I will develop a mobile-responsive website',
-      buyerName: 'Emma Wilson',
-      buyerAvatar: '👩‍💼',
-      package: 'Premium Package',
-      price: 500,
-      status: 'revision',
-      orderDate: '2024-01-08',
-      dueDate: '2024-01-22',
-      deliveryTime: '14 days',
-      progress: 85,
-      requirements: [
-        { question: 'Website purpose?', answer: 'Portfolio website for photography business' },
-        { question: 'Number of pages?', answer: '5 pages: Home, About, Portfolio, Services, Contact' }
-      ],
-      messages: 15,
-      revisions: 1,
-      maxRevisions: 3,
-      files: ['website-v1.zip', 'feedback.docx'],
-      revisionNote: 'Please adjust the color scheme and add more portfolio images'
+  // Load orders from Firebase
+  useEffect(() => {
+    if (!currentUser) {
+      setIsLoading(false);
+      return;
     }
-  ];
+
+    const ordersRef = collection(db, 'orders');
+    const q = query(
+      ordersRef,
+      where('sellerId', '==', currentUser.uid)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const ordersData: Order[] = [];
+      snapshot.forEach((doc) => {
+        ordersData.push({
+          id: doc.id,
+          ...doc.data()
+        } as Order);
+      });
+      
+      // Sort by created date
+      const sortedOrders = ordersData.sort((a, b) => {
+        const aTime = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0);
+        const bTime = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0);
+        return bTime.getTime() - aTime.getTime();
+      });
+      
+      setOrders(sortedOrders);
+      setIsLoading(false);
+    }, (error) => {
+      console.error('Error fetching orders:', error);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  const handleAcceptOrder = async (orderId: string) => {
+    try {
+      const orderRef = doc(db, 'orders', orderId);
+      await updateDoc(orderRef, {
+        status: 'accepted',
+        acceptedAt: new Date()
+      });
+    } catch (error) {
+      console.error('Error accepting order:', error);
+      alert('Failed to accept order. Please try again.');
+    }
+  };
+
+  const handleRejectOrder = async (orderId: string) => {
+    if (!window.confirm('Are you sure you want to reject this order? This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      const orderRef = doc(db, 'orders', orderId);
+      await updateDoc(orderRef, {
+        status: 'rejected',
+        rejectedAt: new Date()
+      });
+    } catch (error) {
+      console.error('Error rejecting order:', error);
+      alert('Failed to reject order. Please try again.');
+    }
+  };
+
+  const handleStartWork = async (orderId: string) => {
+    try {
+      const orderRef = doc(db, 'orders', orderId);
+      await updateDoc(orderRef, {
+        status: 'in_progress',
+        startedAt: new Date()
+      });
+    } catch (error) {
+      console.error('Error starting work:', error);
+      alert('Failed to start work. Please try again.');
+    }
+  };
 
   const filterOptions = [
     { id: 'all', name: 'All Orders', count: orders.length },
-    { id: 'new', name: 'New', count: orders.filter(o => o.status === 'new').length },
-    { id: 'in-progress', name: 'In Progress', count: orders.filter(o => o.status === 'in-progress').length },
-    { id: 'delivered', name: 'Delivered', count: orders.filter(o => o.status === 'delivered').length },
-    { id: 'revision', name: 'Revisions', count: orders.filter(o => o.status === 'revision').length },
-    { id: 'completed', name: 'Completed', count: orders.filter(o => o.status === 'completed').length }
+    { id: 'pending', name: 'Pending', count: orders.filter(o => o.status === 'pending').length },
+    { id: 'accepted', name: 'Accepted', count: orders.filter(o => o.status === 'accepted').length },
+    { id: 'in_progress', name: 'In Progress', count: orders.filter(o => o.status === 'in_progress').length },
+    { id: 'completed', name: 'Completed', count: orders.filter(o => o.status === 'completed').length },
+    { id: 'revision_requested', name: 'Revisions', count: orders.filter(o => o.status === 'revision_requested').length }
   ];
 
   const filteredOrders = activeFilter === 'all' 
@@ -113,18 +134,20 @@ const Orders: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'new':
-        return 'text-blue-600 bg-blue-50 border-blue-200';
-      case 'in-progress':
+      case 'pending':
         return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-      case 'delivered':
-        return 'text-green-600 bg-green-50 border-green-200';
-      case 'revision':
-        return 'text-orange-600 bg-orange-50 border-orange-200';
-      case 'completed':
+      case 'accepted':
+        return 'text-blue-600 bg-blue-50 border-blue-200';
+      case 'in_progress':
         return 'text-purple-600 bg-purple-50 border-purple-200';
-      case 'cancelled':
+      case 'completed':
+        return 'text-green-600 bg-green-50 border-green-200';
+      case 'revision_requested':
+        return 'text-orange-600 bg-orange-50 border-orange-200';
+      case 'rejected':
         return 'text-red-600 bg-red-50 border-red-200';
+      case 'cancelled':
+        return 'text-gray-600 bg-gray-50 border-gray-200';
       default:
         return 'text-gray-600 bg-gray-50 border-gray-200';
     }
@@ -132,16 +155,18 @@ const Orders: React.FC = () => {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'new':
-        return 'New Order';
-      case 'in-progress':
+      case 'pending':
+        return 'Pending Acceptance';
+      case 'accepted':
+        return 'Accepted';
+      case 'in_progress':
         return 'In Progress';
-      case 'delivered':
-        return 'Delivered';
-      case 'revision':
-        return 'Revision Requested';
       case 'completed':
         return 'Completed';
+      case 'revision_requested':
+        return 'Revision Requested';
+      case 'rejected':
+        return 'Rejected';
       case 'cancelled':
         return 'Cancelled';
       default:
@@ -149,9 +174,10 @@ const Orders: React.FC = () => {
     }
   };
 
-  const getTimeRemaining = (dueDate: string) => {
+  const getTimeRemaining = (dueDate: any) => {
+    if (!dueDate) return 'N/A';
     const now = new Date();
-    const due = new Date(dueDate);
+    const due = dueDate.toDate ? dueDate.toDate() : new Date(dueDate);
     const diff = due.getTime() - now.getTime();
     const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
     
@@ -161,15 +187,31 @@ const Orders: React.FC = () => {
     return `${days} days left`;
   };
 
-  const handleDeliverOrder = (orderId: number) => {
-    console.log('Delivering order:', orderId);
-    // Delivery logic here
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return 'N/A';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
   };
 
-  const handleRequestRevision = (orderId: number) => {
-    console.log('Requesting revision for order:', orderId);
-    // Revision logic here
+  const handleDeliverOrder = (orderId: string) => {
+    console.log('Delivering order:', orderId);
+    // Delivery logic here - navigate to delivery page
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex justify-center items-center">
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B00]"></div>
+          <span className="ml-3 mt-4 text-[#2E2E2E]">Loading orders...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -276,24 +318,24 @@ const Orders: React.FC = () => {
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-start gap-4">
                         <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-xl">
-                          {order.buyerAvatar}
+                          👤
                         </div>
                         <div>
                           <h3 className="text-lg font-semibold text-[#2E2E2E] mb-1">{order.gigTitle}</h3>
                           <p className="text-gray-600 text-sm mb-2">
-                            Ordered by {order.buyerName} • {order.package}
+                            Ordered by {order.buyerName} • {order.packageType.toUpperCase()} Package
                           </p>
                           <div className="flex items-center gap-4 text-sm text-gray-500">
-                            <span>💰 ${order.price}</span>
-                            <span>📅 Due: {new Date(order.dueDate).toLocaleDateString()}</span>
+                            <span>💰 ${order.totalAmount.toFixed(2)}</span>
+                            <span>📅 Due: {formatDate(order.expectedDeliveryDate)}</span>
                             <span className={`font-medium ${
-                              getTimeRemaining(order.dueDate).includes('Overdue') 
+                              getTimeRemaining(order.expectedDeliveryDate).includes('Overdue') 
                                 ? 'text-red-600' 
-                                : getTimeRemaining(order.dueDate).includes('today') 
+                                : getTimeRemaining(order.expectedDeliveryDate).includes('today') 
                                 ? 'text-orange-600' 
                                 : 'text-green-600'
                             }`}>
-                              ⏰ {getTimeRemaining(order.dueDate)}
+                              ⏰ {getTimeRemaining(order.expectedDeliveryDate)}
                             </span>
                           </div>
                         </div>
@@ -304,80 +346,47 @@ const Orders: React.FC = () => {
                           {getStatusText(order.status)}
                         </span>
                         <div className="mt-2 text-sm text-gray-500">
-                          Order #{order.id}
+                          #{order.orderNumber}
                         </div>
                       </div>
                     </div>
 
-                    {/* Progress Bar */}
-                    {order.status === 'in-progress' && (
-                      <div className="mb-4">
-                        <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-                          <span>Progress</span>
-                          <span>{order.progress}% Complete</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-[#FF6B00] h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${order.progress}%` }}
-                          ></div>
-                        </div>
+                    {/* Pending Order Alert */}
+                    {order.status === 'pending' && (
+                      <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <p className="text-sm font-medium text-yellow-800 mb-2">⏰ New order waiting for your response</p>
+                        <p className="text-xs text-yellow-700">Please accept or reject this order within 24 hours</p>
                       </div>
                     )}
 
                     {/* Order Details */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
                       <div>
-                        <p className="text-xs text-gray-500 mb-1">Messages</p>
-                        <p className="text-sm font-medium">{order.messages} messages</p>
+                        <p className="text-xs text-gray-500 mb-1">Package Price</p>
+                        <p className="text-sm font-medium">${order.price}</p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500 mb-1">Revisions</p>
-                        <p className="text-sm font-medium">{order.revisions}/{order.maxRevisions} used</p>
+                        <p className="text-sm font-medium">{order.revisionCount}/{order.maxRevisions} used</p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500 mb-1">Files</p>
-                        <p className="text-sm font-medium">{order.files.length} files</p>
+                        <p className="text-xs text-gray-500 mb-1">Payment Status</p>
+                        <p className="text-sm font-medium capitalize">{order.paymentStatus}</p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500 mb-1">Delivery Time</p>
-                        <p className="text-sm font-medium">{order.deliveryTime}</p>
+                        <p className="text-sm font-medium">{order.deliveryTime} days</p>
                       </div>
                     </div>
 
-                    {/* Revision Note */}
-                    {order.status === 'revision' && order.revisionNote && (
-                      <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                        <p className="text-sm font-medium text-orange-800 mb-1">Revision Requested:</p>
-                        <p className="text-sm text-orange-700">{order.revisionNote}</p>
-                      </div>
-                    )}
-
-                    {/* Review (for delivered orders) */}
-                    {order.status === 'delivered' && order.rating && (
-                      <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="flex">
-                            {[...Array(5)].map((_, i) => (
-                              <span key={i} className={`text-sm ${i < order.rating! ? 'text-yellow-500' : 'text-gray-300'}`}>
-                                ⭐
-                              </span>
-                            ))}
-                          </div>
-                          <span className="text-sm font-medium text-green-800">{order.rating}/5</span>
-                        </div>
-                        <p className="text-sm text-green-700">{order.review}</p>
-                      </div>
-                    )}
-
                     {/* Action Buttons */}
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                       <div className="flex items-center gap-3">
                         <button 
                           onClick={() => setSelectedOrder(selectedOrder === order.id ? null : order.id)}
                           className="text-[#FF6B00] hover:underline text-sm font-medium"
                         >
-                          View Details
+                          {selectedOrder === order.id ? 'Hide Details' : 'View Details'}
                         </button>
                         <Link 
                           to={`/freelancer/messages`}
@@ -394,23 +403,42 @@ const Orders: React.FC = () => {
                       </div>
                       
                       <div className="flex items-center gap-3">
-                        {order.status === 'new' && (
-                          <button className="bg-[#FF6B00] text-white px-4 py-2 rounded-lg hover:bg-[#FF9F45] transition-colors text-sm">
+                        {order.status === 'pending' && (
+                          <>
+                            <button 
+                              onClick={() => handleRejectOrder(order.id)}
+                              className="border border-red-500 text-red-600 px-4 py-2 rounded-lg hover:bg-red-50 transition-colors text-sm font-medium"
+                            >
+                              Reject
+                            </button>
+                            <button 
+                              onClick={() => handleAcceptOrder(order.id)}
+                              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                            >
+                              Accept Order
+                            </button>
+                          </>
+                        )}
+                        {order.status === 'accepted' && (
+                          <button 
+                            onClick={() => handleStartWork(order.id)}
+                            className="bg-[#FF6B00] text-white px-4 py-2 rounded-lg hover:bg-[#FF9F45] transition-colors text-sm font-medium"
+                          >
                             Start Working
                           </button>
                         )}
-                        {order.status === 'in-progress' && (
+                        {order.status === 'in_progress' && (
                           <button 
                             onClick={() => handleDeliverOrder(order.id)}
-                            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm"
+                            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
                           >
                             Deliver Work
                           </button>
                         )}
-                        {order.status === 'revision' && (
+                        {order.status === 'revision_requested' && (
                           <button 
-                            onClick={() => handleRequestRevision(order.id)}
-                            className="bg-[#FF6B00] text-white px-4 py-2 rounded-lg hover:bg-[#FF9F45] transition-colors text-sm"
+                            onClick={() => handleDeliverOrder(order.id)}
+                            className="bg-[#FF6B00] text-white px-4 py-2 rounded-lg hover:bg-[#FF9F45] transition-colors text-sm font-medium"
                           >
                             Submit Revision
                           </button>
@@ -419,28 +447,24 @@ const Orders: React.FC = () => {
                     </div>
 
                     {/* Expanded Details */}
-                    {selectedOrder === order.id && (
+                    {selectedOrder === order.id && order.requirements && (
                       <div className="mt-4 pt-4 border-t border-gray-100">
                         <h4 className="font-semibold text-[#2E2E2E] mb-3">Order Requirements</h4>
-                        <div className="space-y-3">
-                          {order.requirements.map((req, index) => (
-                            <div key={index} className="bg-gray-50 p-3 rounded-lg">
-                              <p className="text-sm font-medium text-[#2E2E2E] mb-1">{req.question}</p>
-                              <p className="text-sm text-gray-600">{req.answer}</p>
-                            </div>
-                          ))}
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <p className="text-sm text-gray-700 whitespace-pre-wrap">{order.requirements}</p>
                         </div>
                         
-                        {order.files.length > 0 && (
+                        {order.features && order.features.length > 0 && (
                           <div className="mt-4">
-                            <h5 className="font-medium text-[#2E2E2E] mb-2">Attached Files</h5>
-                            <div className="flex flex-wrap gap-2">
-                              {order.files.map((file, index) => (
-                                <span key={index} className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm">
-                                  📎 {file}
-                                </span>
+                            <h5 className="font-medium text-[#2E2E2E] mb-2">Package Features</h5>
+                            <ul className="space-y-2">
+                              {order.features.map((feature, index) => (
+                                <li key={index} className="flex items-start gap-2 text-sm text-gray-700">
+                                  <span className="text-green-500">✓</span>
+                                  {feature}
+                                </li>
                               ))}
-                            </div>
+                            </ul>
                           </div>
                         )}
                       </div>

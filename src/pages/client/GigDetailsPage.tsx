@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { Star, Clock, Package, Check, ChevronLeft, MessageCircle, Heart } from 'lucide-react';
+import { Star, Clock, Package, Check, ChevronLeft, MessageCircle, Heart, User } from 'lucide-react';
+import MessageModal from '../../components/MessageModal';
 
 interface GigPackage {
   title: string;
@@ -44,6 +45,17 @@ interface Gig {
   }>;
 }
 
+interface Review {
+  id: string;
+  clientId: string;
+  clientName: string;
+  rating: number;
+  reviewText: string;
+  createdAt: any;
+  orderNumber: string;
+  clientAvatar?: string;
+}
+
 const GigDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -52,10 +64,19 @@ const GigDetailsPage: React.FC = () => {
   const [selectedPackage, setSelectedPackage] = useState<'basic' | 'standard' | 'premium'>('basic');
   const [activeTab, setActiveTab] = useState<'overview' | 'faq' | 'reviews'>('overview');
   const [isFavorite, setIsFavorite] = useState(false);
+  const [showMessageModal, setShowMessageModal] = useState(false);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
 
   useEffect(() => {
     fetchGigDetails();
   }, [id]);
+
+  useEffect(() => {
+    if (activeTab === 'reviews' && gig) {
+      fetchReviews();
+    }
+  }, [activeTab, gig]);
 
   const fetchGigDetails = async () => {
     if (!id) return;
@@ -129,19 +150,98 @@ const GigDetailsPage: React.FC = () => {
     const selectedPkg = gig.packages?.[selectedPackage];
     if (!selectedPkg) return;
 
-    // Navigate to order placement page or show order modal
-    // For now, we'll just show an alert
-    alert(`Placing order for ${selectedPackage.toUpperCase()} package - $${selectedPkg.price}`);
-    // TODO: Implement actual order placement logic
-    // navigate('/client/place-order', { state: { gigId: gig.id, package: selectedPackage } });
+    // Navigate to order placement page with gig and package details
+    navigate('/client/place-order', { 
+      state: { 
+        gigId: gig.id, 
+        packageType: selectedPackage 
+      } 
+    });
   };
 
   const handleContactSeller = () => {
     if (!gig) return;
-    // Navigate to messages with seller
-    alert('Contact seller feature - Coming soon!');
-    // TODO: Implement messaging
-    // navigate('/client/messages', { state: { sellerId: gig.userId } });
+    setShowMessageModal(true);
+  };
+
+  const fetchReviews = async () => {
+    if (!gig) return;
+
+    setIsLoadingReviews(true);
+    try {
+      const reviewsQuery = query(
+        collection(db, 'reviews'),
+        where('gigId', '==', gig.id)
+      );
+      const reviewsSnap = await getDocs(reviewsQuery);
+      const reviewsData: Review[] = [];
+      
+      // Fetch reviews with client avatars
+      for (const docSnap of reviewsSnap.docs) {
+        const reviewData = docSnap.data();
+        let clientAvatar = '';
+        
+        // Fetch client's avatar from users collection
+        if (reviewData.clientId) {
+          try {
+            const userDoc = await getDoc(doc(db, 'users', reviewData.clientId));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              clientAvatar = userData.profilePictureUrl || userData.profile?.profilePictureUrl || '';
+            }
+          } catch (error) {
+            console.error('Error fetching client avatar:', error);
+          }
+        }
+        
+        reviewsData.push({
+          id: docSnap.id,
+          ...reviewData,
+          clientAvatar
+        } as Review);
+      }
+      
+      // Sort by createdAt in JavaScript
+      reviewsData.sort((a, b) => {
+        const aTime = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0);
+        const bTime = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0);
+        return bTime.getTime() - aTime.getTime();
+      });
+      
+      setReviews(reviewsData);
+      console.log('Fetched reviews:', reviewsData.length);
+    } catch (error) {
+      console.error('Error fetching reviews:', error);
+    } finally {
+      setIsLoadingReviews(false);
+    }
+  };
+
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return 'N/A';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  };
+
+  const renderStars = (rating: number) => {
+    return (
+      <div className="flex items-center gap-1">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Star
+            key={star}
+            className={`w-4 h-4 ${
+              star <= rating
+                ? 'fill-[#FF6B00] text-[#FF6B00]'
+                : 'text-gray-300'
+            }`}
+          />
+        ))}
+      </div>
+    );
   };
 
   const getGigImage = (index: number = 0) => {
@@ -379,8 +479,77 @@ const GigDetailsPage: React.FC = () => {
                 {activeTab === 'reviews' && (
                   <div>
                     <h3 className="text-xl font-bold text-[#2E2E2E] mb-4">Reviews</h3>
-                    <p className="text-[#2E2E2E]/60">No reviews yet. Be the first to order!</p>
-                    {/* TODO: Implement reviews fetching from Firebase */}
+                    
+                    {isLoadingReviews ? (
+                      <div className="flex justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF6B00]"></div>
+                      </div>
+                    ) : reviews.length > 0 ? (
+                      <div className="space-y-6">
+                        {/* Reviews Summary */}
+                        <div className="bg-[#ffeee3]/30 rounded-lg p-4">
+                          <div className="flex items-center gap-4">
+                            <div className="text-center">
+                              <p className="text-4xl font-bold text-[#2E2E2E]">
+                                {(reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)}
+                              </p>
+                              {renderStars(Math.round(reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length))}
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-[#2E2E2E] font-medium">
+                                {reviews.length} {reviews.length === 1 ? 'Review' : 'Reviews'}
+                              </p>
+                              <p className="text-sm text-[#2E2E2E]/60">
+                                Based on client feedback
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Individual Reviews */}
+                        <div className="space-y-4">
+                          {reviews.map((review) => (
+                            <div key={review.id} className="border-b border-[#ffeee3] pb-4 last:border-0">
+                              <div className="flex items-start gap-3 mb-3">
+                                <div className="w-10 h-10 rounded-full bg-[#FF6B00] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                  {review.clientAvatar ? (
+                                    <img 
+                                      src={review.clientAvatar} 
+                                      alt={review.clientName}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <span className="text-white font-bold">
+                                      {review.clientName?.charAt(0)?.toUpperCase() || 'U'}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <h4 className="font-semibold text-[#2E2E2E]">{review.clientName}</h4>
+                                    <span className="text-xs text-[#2E2E2E]/60">
+                                      {formatDate(review.createdAt)}
+                                    </span>
+                                  </div>
+                                  {renderStars(review.rating)}
+                                </div>
+                              </div>
+                              <p className="text-[#2E2E2E]/80 ml-13">
+                                {review.reviewText}
+                              </p>
+                              <p className="text-xs text-[#2E2E2E]/50 mt-2 ml-13">
+                                Order #{review.orderNumber}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <User className="w-12 h-12 text-[#2E2E2E]/30 mx-auto mb-3" />
+                        <p className="text-[#2E2E2E]/60">No reviews yet. Be the first to order!</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -535,6 +704,19 @@ const GigDetailsPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Message Modal */}
+      {gig && (
+        <MessageModal
+          isOpen={showMessageModal}
+          onClose={() => setShowMessageModal(false)}
+          recipientId={gig.userId}
+          recipientName={gig.seller?.name || 'Freelancer'}
+          recipientAvatar={gig.seller?.avatar}
+          gigId={gig.id}
+          gigTitle={gig.title}
+        />
+      )}
     </div>
   );
 };

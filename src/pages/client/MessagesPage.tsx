@@ -1,129 +1,378 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { collection, query, where, onSnapshot, getDocs, doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 
 const MessagesPage: React.FC = () => {
-  const [selectedConversation, setSelectedConversation] = useState<string | null>('1');
+  const { currentUser } = useAuth();
+  const location = useLocation();
+  const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [messageText, setMessageText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-
-  const conversations = [
-    {
-      id: '1',
-      freelancer: {
-        name: 'John Smith',
-        avatar: '/api/placeholder/40/40',
-        status: 'online'
-      },
-      project: 'E-commerce Website Development',
-      lastMessage: 'I\'ve completed the frontend development milestone and uploaded the files to the workspace.',
-      timestamp: '2 min ago',
-      unread: 2,
-      isActive: true
-    },
-    {
-      id: '2',
-      freelancer: {
-        name: 'Sarah Johnson',
-        avatar: '/api/placeholder/40/40',
-        status: 'away'
-      },
-      project: 'Mobile App UI Design',
-      lastMessage: 'Thank you for the feedback! I\'ll incorporate those changes and have the final designs ready by tomorrow.',
-      timestamp: '1 hour ago',
-      unread: 0,
-      isActive: true
-    },
-    {
-      id: '3',
-      freelancer: {
-        name: 'Mike Chen',
-        avatar: '/api/placeholder/40/40',
-        status: 'offline'
-      },
-      project: 'Brand Identity Package',
-      lastMessage: 'Perfect! The logo concepts look great. I especially like option 2.',
-      timestamp: '3 hours ago',
-      unread: 1,
-      isActive: true
-    },
-    {
-      id: '4',
-      freelancer: {
-        name: 'Emma Wilson',
-        avatar: '/api/placeholder/40/40',
-        status: 'offline'
-      },
-      project: 'Blog Content Creation',
-      lastMessage: 'All articles have been delivered. Thank you for working with me!',
-      timestamp: '2 days ago',
-      unread: 0,
-      isActive: false
-    }
-  ];
-
-  const messages = [
-    {
-      id: '1',
-      sender: 'John Smith',
-      content: 'Hi! I wanted to update you on the progress. I\'ve completed the frontend development milestone.',
-      timestamp: '10:30 AM',
-      isOwn: false,
-      type: 'text'
-    },
-    {
-      id: '2',
-      sender: 'You',
-      content: 'That\'s great news! How long did it take you to complete?',
-      timestamp: '10:32 AM',
-      isOwn: true,
-      type: 'text'
-    },
-    {
-      id: '3',
-      sender: 'John Smith',
-      content: 'It took about 2 weeks as planned. I\'ve also uploaded all the files to the project workspace.',
-      timestamp: '10:35 AM',
-      isOwn: false,
-      type: 'text'
-    },
-    {
-      id: '4',
-      sender: 'John Smith',
-      content: 'Here are some screenshots of the key pages:',
-      timestamp: '10:36 AM',
-      isOwn: false,
-      type: 'text'
-    },
-    {
-      id: '5',
-      sender: 'John Smith',
-      content: 'homepage-screenshot.png',
-      timestamp: '10:36 AM',
-      isOwn: false,
-      type: 'file',
-      fileInfo: {
-        name: 'homepage-screenshot.png',
-        size: '2.4 MB',
-        type: 'image'
+  // Define a type for conversation data
+  type FirestoreConversation = {
+    id: string;
+    conversationId?: string;
+    senderId?: string;
+    senderName?: string;
+    senderAvatar?: string;
+    recipientId?: string;
+    recipientName?: string;
+    recipientAvatar?: string;
+    gigTitle?: string;
+    lastMessage?: string;
+    lastMessageTimestamp?: any;
+    updatedAt?: any;
+    [key: string]: any;
+  };
+  const [conversations, setConversations] = useState<FirestoreConversation[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  // Delete menu states
+  const [showMessageDeleteMenu, setShowMessageDeleteMenu] = useState<string | null>(null);
+  const [showConversationDeleteMenu, setShowConversationDeleteMenu] = useState<string | null>(null);
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  // --- Long Press Handlers for Messages ---
+  const handleMessageMouseDown = (messageId: string) => {
+    const timer = setTimeout(() => {
+      if (showMessageDeleteMenu === messageId) {
+        setShowMessageDeleteMenu(null);
+      } else {
+        setShowMessageDeleteMenu(messageId);
       }
-    },
-    {
-      id: '6',
-      sender: 'You',
-      content: 'Looks fantastic! The design is exactly what we discussed. Ready to move to the next milestone?',
-      timestamp: '11:15 AM',
-      isOwn: true,
-      type: 'text'
-    },
-    {
-      id: '7',
-      sender: 'John Smith',
-      content: 'Yes, I\'m ready to start the backend development. I\'ll begin working on the API endpoints tomorrow.',
-      timestamp: '11:20 AM',
-      isOwn: false,
-      type: 'text'
+    }, 500); // 500ms long press
+    setLongPressTimer(timer);
+  };
+
+  const handleMessageMouseUp = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
     }
-  ];
+  };
+
+  const handleMessageContextMenu = (e: React.MouseEvent, messageId: string) => {
+    e.preventDefault();
+    if (showMessageDeleteMenu === messageId) {
+      setShowMessageDeleteMenu(null);
+    } else {
+      setShowMessageDeleteMenu(messageId);
+    }
+  };
+
+  // --- Long Press Handlers for Conversations ---
+  const handleConversationMouseDown = (conversationId: string) => {
+    const timer = setTimeout(() => {
+      if (showConversationDeleteMenu === conversationId) {
+        setShowConversationDeleteMenu(null);
+      } else {
+        setShowConversationDeleteMenu(conversationId);
+      }
+    }, 500); // 500ms long press
+    setLongPressTimer(timer);
+  };
+
+  const handleConversationMouseUp = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  };
+
+  const handleConversationContextMenu = (e: React.MouseEvent, conversationId: string) => {
+    e.preventDefault();
+    if (showConversationDeleteMenu === conversationId) {
+      setShowConversationDeleteMenu(null);
+    } else {
+      setShowConversationDeleteMenu(conversationId);
+    }
+  };
+
+  // --- Delete Handlers ---
+  const handleDeleteMessage = (messageId: string) => {
+    // Remove message from UI only (for demo)
+    setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+    // TODO: Remove from Firestore if needed
+  };
+
+  const handleDeleteConversation = async (conversationId: string) => {
+    setConversations((prev) => prev.filter((conv) => conv.id !== conversationId));
+    // TODO: Remove from Firestore if needed
+    if (selectedConversation === conversationId) {
+      setSelectedConversation(null);
+    }
+  };
+
+  // Handle navigation state to select conversation
+  useEffect(() => {
+    if (location.state?.recipientId && conversations.length > 0) {
+      const recipientId = location.state.recipientId;
+      
+      // Find existing conversation with this recipient
+      const existingConversation = conversations.find(conv => 
+        conv.otherUserId === recipientId
+      );
+      
+      if (existingConversation) {
+        setSelectedConversation(existingConversation.id);
+        console.log('Found existing conversation:', existingConversation.id);
+      } else {
+        console.log('No existing conversation found with recipient:', recipientId);
+      }
+    }
+  }, [location.state, conversations]);
+
+  // Load conversations from Firebase
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const loadConversations = async () => {
+      try {
+        // Get all conversations where current user is involved
+        const conversationsRef = collection(db, 'conversations');
+        const q1 = query(conversationsRef, where('senderId', '==', currentUser.uid));
+        const q2 = query(conversationsRef, where('recipientId', '==', currentUser.uid));
+        
+        const [senderConversations, recipientConversations] = await Promise.all([
+          getDocs(q1),
+          getDocs(q2)
+        ]);
+        
+        const allConversations: FirestoreConversation[] = [...senderConversations.docs, ...recipientConversations.docs]
+          .map(doc => {
+            const data = doc.data() as FirestoreConversation;
+            return { ...data, id: doc.id };
+          })
+          .filter((conv, index, self) => 
+            conv.conversationId
+              ? index === self.findIndex(c => c.conversationId === conv.conversationId)
+              : index === self.findIndex(c => c.id === conv.id)
+          );
+        
+        // Fetch user profile pictures for all conversations
+        const conversationList = await Promise.all(allConversations.map(async (conv) => {
+          const isUserSender = conv.senderId === currentUser.uid;
+          const otherUserName = isUserSender ? conv.recipientName : conv.senderName;
+          const otherUserId = isUserSender ? conv.recipientId : conv.senderId;
+
+          // Fetch user profile from Firebase users collection
+          let otherUserAvatar = isUserSender ? conv.recipientAvatar : conv.senderAvatar;
+          try {
+            if (otherUserId) {
+              const userDoc = await getDoc(doc(db, 'users', otherUserId));
+              if (userDoc.exists()) {
+                const userData = userDoc.data();
+                otherUserAvatar = userData.profilePictureUrl || userData.photoURL || otherUserAvatar;
+              }
+            }
+          } catch (error) {
+            console.log('Could not fetch user profile for:', otherUserId);
+          }
+
+          return {
+            id: conv.conversationId || conv.id,
+            freelancer: {
+              name: otherUserName || 'Unknown',
+              avatar: otherUserAvatar || '/api/placeholder/40/40',
+              status: 'online'
+            },
+            project: conv.gigTitle || 'General Discussion',
+            lastMessage: conv.lastMessage || 'No messages yet',
+            timestamp: formatTimestamp(conv.lastMessageTimestamp?.toDate ? conv.lastMessageTimestamp?.toDate() : conv.updatedAt?.toDate ? conv.updatedAt?.toDate() : undefined),
+            unread: 0,
+            isActive: true,
+            otherUserId,
+            conversationData: conv
+          };
+        }));
+        
+        setConversations(conversationList.sort((a, b) => {
+          const aTime = a.conversationData.lastMessageTimestamp?.toDate ? a.conversationData.lastMessageTimestamp?.toDate() : a.conversationData.updatedAt?.toDate ? a.conversationData.updatedAt?.toDate() : new Date(0);
+          const bTime = b.conversationData.lastMessageTimestamp?.toDate ? b.conversationData.lastMessageTimestamp?.toDate() : b.conversationData.updatedAt?.toDate ? b.conversationData.updatedAt?.toDate() : new Date(0);
+          return bTime.getTime() - aTime.getTime();
+        }));
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error loading conversations:', error);
+        setIsLoading(false);
+      }
+    };
+
+    loadConversations();
+    
+    // Also reload when page becomes visible to get fresh profile pictures
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadConversations();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [currentUser]);
+
+  // Load messages for selected conversation
+  useEffect(() => {
+    if (!selectedConversation || !currentUser) return;
+
+    // Find the actual document ID for this conversation
+    const selectedConvData = conversations.find(conv => conv.id === selectedConversation);
+    const documentId = selectedConvData?.conversationData?.id || selectedConversation;
+    
+    const conversationRef = doc(db, 'conversations', documentId);
+
+    const unsubscribe = onSnapshot(conversationRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const allMessages: any[] = [];
+        
+        // Combine sender and receiver messages
+        if (data.senderMessages) {
+          data.senderMessages.forEach((msg: any, index: number) => {
+            allMessages.push({
+              id: `sender_${index}`,
+              sender: data.senderId === currentUser.uid ? 'You' : data.senderName,
+              content: msg.message,
+              timestamp: formatTime(msg.timestamp?.toDate() || new Date(msg.timestamp)),
+              isOwn: data.senderId === currentUser.uid,
+              type: 'text',
+              rawTimestamp: msg.timestamp?.toDate() || new Date(msg.timestamp)
+            });
+          });
+        }
+        
+        if (data.receiverMessages) {
+          data.receiverMessages.forEach((msg: any, index: number) => {
+            allMessages.push({
+              id: `receiver_${index}`,
+              sender: data.recipientId === currentUser.uid ? 'You' : data.recipientName,
+              content: msg.message,
+              timestamp: formatTime(msg.timestamp?.toDate() || new Date(msg.timestamp)),
+              isOwn: data.recipientId === currentUser.uid,
+              type: 'text',
+              rawTimestamp: msg.timestamp?.toDate() || new Date(msg.timestamp)
+            });
+          });
+        }
+        
+        // Sort all messages by timestamp
+        allMessages.sort((a, b) => {
+          return a.rawTimestamp.getTime() - b.rawTimestamp.getTime();
+        });
+        
+        setMessages(allMessages);
+      } else {
+        setMessages([]);
+      }
+    }, (error) => {
+      console.error('Error loading messages:', error);
+    });
+
+    return () => unsubscribe();
+  }, [selectedConversation, currentUser]);
+
+  const formatTimestamp = (timestamp: any) => {
+    if (!timestamp) return 'now';
+    const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    
+    if (minutes < 1) return 'now';
+    if (minutes < 60) return `${minutes} min ago`;
+    if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    return `${days} day${days > 1 ? 's' : ''} ago`;
+  };
+
+  const formatTime = (timestamp: any) => {
+    if (!timestamp) return '';
+    const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const handleSendMessage = async () => {
+    if (!messageText.trim() || !currentUser || !selectedConversation) return;
+
+    try {
+      const selectedConv = conversations.find(conv => conv.id === selectedConversation);
+      if (!selectedConv) return;
+
+      // Use the actual document ID from Firebase
+      const documentId = selectedConv.conversationData?.id || selectedConversation;
+      const conversationRef = doc(db, 'conversations', documentId);
+      const conversationSnap = await getDoc(conversationRef);
+      
+      const newMessage = {
+        message: messageText.trim(),
+        timestamp: new Date(),
+        isRead: false
+      };
+      
+      if (conversationSnap.exists()) {
+        const data = conversationSnap.data();
+        const isSender = currentUser.uid === data.senderId;
+        
+        // Fetch fresh profile pictures for both users
+        let senderAvatar = data.senderAvatar || '';
+        let recipientAvatar = data.recipientAvatar || '';
+        
+        try {
+          const senderDoc = await getDoc(doc(db, 'users', data.senderId));
+          if (senderDoc.exists()) {
+            const senderData = senderDoc.data();
+            senderAvatar = senderData.profilePictureUrl || senderData.photoURL || senderAvatar;
+          }
+        } catch (error) {
+          console.log('Could not fetch sender profile');
+        }
+        
+        try {
+          const recipientDoc = await getDoc(doc(db, 'users', data.recipientId));
+          if (recipientDoc.exists()) {
+            const recipientData = recipientDoc.data();
+            recipientAvatar = recipientData.profilePictureUrl || recipientData.photoURL || recipientAvatar;
+          }
+        } catch (error) {
+          console.log('Could not fetch recipient profile');
+        }
+        
+        if (isSender) {
+          // Add to sender messages
+          await updateDoc(conversationRef, {
+            senderMessages: arrayUnion(newMessage),
+            senderAvatar: senderAvatar,
+            recipientAvatar: recipientAvatar,
+            lastMessage: messageText.trim(),
+            lastMessageTimestamp: new Date(),
+            updatedAt: new Date()
+          });
+        } else {
+          // Add to receiver messages
+          await updateDoc(conversationRef, {
+            receiverMessages: arrayUnion(newMessage),
+            senderAvatar: senderAvatar,
+            recipientAvatar: recipientAvatar,
+            lastMessage: messageText.trim(),
+            lastMessageTimestamp: new Date(),
+            updatedAt: new Date()
+          });
+        }
+      }
+      
+      setMessageText('');
+      
+    } catch (error) {
+      console.error('Error sending message:', error);
+      alert('Failed to send message. Please try again.');
+    }
+  };
+
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -140,6 +389,17 @@ const MessagesPage: React.FC = () => {
   );
 
   const selectedConv = conversations.find(conv => conv.id === selectedConversation);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#ffeee3] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B00] mx-auto mb-4"></div>
+          <p className="text-[#2E2E2E]/60">Loading conversations...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#ffeee3]">
@@ -180,15 +440,47 @@ const MessagesPage: React.FC = () => {
                   </div>
 
                   {/* Conversations List */}
-                  <div className="flex-1 overflow-y-auto">
-                    {filteredConversations.map((conversation) => (
+                  <div className="flex-1 overflow-y-auto" onClick={() => setShowConversationDeleteMenu(null)}>
+                    {conversations.length === 0 ? (
+                      <div className="p-4 text-center text-[#2E2E2E]/60">
+                        <p>No conversations yet</p>
+                      </div>
+                    ) : (
+                      filteredConversations.map((conversation) => (
                       <div
                         key={conversation.id}
-                        onClick={() => setSelectedConversation(conversation.id)}
-                        className={`p-4 border-b border-[#ffeee3] cursor-pointer hover:bg-[#ffeee3]/30 transition-colors ${
-                          selectedConversation === conversation.id ? 'bg-[#ffeee3]/50' : ''
-                        }`}
+                        className="relative"
+                        onMouseDown={() => handleConversationMouseDown(conversation.id)}
+                        onMouseUp={handleConversationMouseUp}
+                        onMouseLeave={handleConversationMouseUp}
+                        onTouchStart={() => handleConversationMouseDown(conversation.id)}
+                        onTouchEnd={handleConversationMouseUp}
+                        onContextMenu={(e) => handleConversationContextMenu(e, conversation.id)}
                       >
+                        <div
+                          onClick={() => setSelectedConversation(conversation.id)}
+                          className={`p-4 border-b border-[#ffeee3] cursor-pointer hover:bg-[#ffeee3]/30 transition-colors ${
+                            selectedConversation === conversation.id ? 'bg-[#ffeee3]/50' : ''
+                          }`}
+                        >
+                          {/* Delete button */}
+                          {showConversationDeleteMenu === conversation.id && (
+                            <div className="absolute right-2 top-1/2 transform -translate-y-1/2 z-10">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteConversation(conversation.id);
+                                  setShowConversationDeleteMenu(null);
+                                }}
+                                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg shadow-lg flex items-center space-x-1 text-sm"
+                              >
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M9 2a1 1 0 00-2 0v1H4a1 1 0 000 2h1v10a2 2 0 002 2h6a2 2 0 002-2V5h1a1 1 0 100-2h-3V2a1 1 0 00-2 0H9zM7 5h6v10H7V5zm2 2a1 1 0 012 0v6a1 1 0 11-2 0V7z" clipRule="evenodd" />
+                                </svg>
+                                <span>Delete</span>
+                              </button>
+                            </div>
+                          )}
                         <div className="flex items-start space-x-3">
                           <div className="relative">
                             <img
@@ -214,8 +506,10 @@ const MessagesPage: React.FC = () => {
                             <p className="text-sm text-[#2E2E2E]/60 truncate">{conversation.lastMessage}</p>
                           </div>
                         </div>
+                        </div>
                       </div>
-                    ))}
+                    ))
+                    )}
                   </div>
                 </div>
 
@@ -264,13 +558,39 @@ const MessagesPage: React.FC = () => {
                       </div>
 
                       {/* Messages */}
-                      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                      <div className="flex-1 overflow-y-auto p-4 space-y-4" onClick={() => setShowMessageDeleteMenu(null)}>
                         {messages.map((message) => (
                           <div
                             key={message.id}
-                            className={`flex ${message.isOwn ? 'justify-end' : 'justify-start'}`}
+                            className={`flex ${message.isOwn ? 'justify-end' : 'justify-start'} relative group`}
+                            onMouseDown={() => handleMessageMouseDown(message.id)}
+                            onMouseUp={handleMessageMouseUp}
+                            onMouseLeave={handleMessageMouseUp}
+                            onTouchStart={() => handleMessageMouseDown(message.id)}
+                            onTouchEnd={handleMessageMouseUp}
+                            onContextMenu={(e) => handleMessageContextMenu(e, message.id)}
                           >
-                            <div className={`max-w-[70%] ${message.isOwn ? 'order-2' : 'order-1'}`}>
+                            {/* Delete button */}
+                            {showMessageDeleteMenu === message.id && (
+                              <div className={`absolute top-0 ${message.isOwn ? 'left-0' : 'right-0'} z-10`}>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteMessage(message.id);
+                                    setShowMessageDeleteMenu(null);
+                                  }}
+                                  className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded-lg shadow-lg text-xs flex items-center space-x-1"
+                                >
+                                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M9 2a1 1 0 00-2 0v1H4a1 1 0 000 2h1v10a2 2 0 002 2h6a2 2 0 002-2V5h1a1 1 0 100-2h-3V2a1 1 0 00-2 0H9zM7 5h6v10H7V5zm2 2a1 1 0 012 0v6a1 1 0 11-2 0V7z" clipRule="evenodd" />
+                                  </svg>
+                                  <span>Delete</span>
+                                </button>
+                              </div>
+                            )}
+                            <div 
+                              className={`max-w-[70%] ${message.isOwn ? 'order-2' : 'order-1'}`}
+                            >
                               {message.type === 'text' ? (
                                 <div className={`p-3 rounded-lg ${
                                   message.isOwn
@@ -318,12 +638,19 @@ const MessagesPage: React.FC = () => {
                             <textarea
                               value={messageText}
                               onChange={(e) => setMessageText(e.target.value)}
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  handleSendMessage();
+                                }
+                              }}
                               placeholder="Type your message..."
                               className="w-full px-4 py-3 border border-[#ffeee3] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent resize-none"
                               rows={2}
                             />
                           </div>
                           <button
+                            onClick={handleSendMessage}
                             disabled={!messageText.trim()}
                             className={`p-3 rounded-lg transition-colors ${
                               messageText.trim()

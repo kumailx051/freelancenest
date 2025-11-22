@@ -23,6 +23,8 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { FreelanceFirestoreService } from '../../lib/firestoreService';
 import { uploadImage } from '../../lib/imageUpload';
+import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 
 const Profile: React.FC = () => {
   const { currentUser } = useAuth();
@@ -66,6 +68,7 @@ const Profile: React.FC = () => {
     onTimeDelivery: 0,
     avgProjectValue: 0
   });
+  const [reviews, setReviews] = useState<any[]>([]);
 
   // Fetch user profile data from Firebase
   useEffect(() => {
@@ -146,6 +149,149 @@ const Profile: React.FC = () => {
     };
 
     fetchProfileData();
+  }, [currentUser]);
+
+  // Fetch freelancer statistics from Firebase
+  useEffect(() => {
+    const fetchFreelancerStats = async () => {
+      if (!currentUser) return;
+
+      try {
+        // Fetch all orders for this freelancer
+        const ordersQuery = query(
+          collection(db, 'orders'),
+          where('sellerId', '==', currentUser.uid)
+        );
+        const ordersSnap = await getDocs(ordersQuery);
+        
+        let totalEarnings = 0;
+        let completedProjects = 0;
+        const clientIds = new Set<string>();
+        const repeatClientIds = new Set<string>();
+        let onTimeDeliveries = 0;
+        
+        // Track clients and their order counts
+        const clientOrderCounts = new Map<string, number>();
+        
+        ordersSnap.forEach((doc) => {
+          const orderData = doc.data();
+          if (orderData.status === 'completed') {
+            completedProjects++;
+            totalEarnings += orderData.totalAmount || orderData.price || 0;
+            
+            // Track on-time delivery
+            if (orderData.deliveredAt && orderData.expectedDeliveryDate) {
+              const deliveredDate = orderData.deliveredAt.toDate ? orderData.deliveredAt.toDate() : new Date(orderData.deliveredAt);
+              const expectedDate = orderData.expectedDeliveryDate.toDate ? orderData.expectedDeliveryDate.toDate() : new Date(orderData.expectedDeliveryDate);
+              if (deliveredDate <= expectedDate) {
+                onTimeDeliveries++;
+              }
+            }
+          }
+          
+          if (orderData.buyerId) {
+            clientIds.add(orderData.buyerId);
+            const count = clientOrderCounts.get(orderData.buyerId) || 0;
+            clientOrderCounts.set(orderData.buyerId, count + 1);
+            if (count + 1 > 1) {
+              repeatClientIds.add(orderData.buyerId);
+            }
+          }
+        });
+
+        const avgProjectValue = completedProjects > 0 ? totalEarnings / completedProjects : 0;
+        const onTimeDeliveryRate = completedProjects > 0 ? (onTimeDeliveries / completedProjects) * 100 : 0;
+        const repeatClientRate = clientIds.size > 0 ? (repeatClientIds.size / clientIds.size) * 100 : 0;
+
+        // Fetch reviews to calculate client satisfaction
+        const reviewsQuery = query(
+          collection(db, 'reviews'),
+          where('sellerId', '==', currentUser.uid)
+        );
+        const reviewsSnap = await getDocs(reviewsQuery);
+        
+        let totalRating = 0;
+        let reviewCount = 0;
+        const reviewsData: any[] = [];
+        
+        for (const docSnap of reviewsSnap.docs) {
+          const reviewData = docSnap.data();
+          totalRating += reviewData.rating || 0;
+          reviewCount++;
+          
+          let clientName = 'Unknown Client';
+          let clientAvatar = '';
+          let gigTitle = 'Unknown Project';
+          
+          // Fetch client info
+          if (reviewData.clientId) {
+            try {
+              const clientDoc = await getDoc(doc(db, 'users', reviewData.clientId));
+              if (clientDoc.exists()) {
+                const clientData = clientDoc.data();
+                clientName = `${clientData.firstName || ''} ${clientData.lastName || ''}`.trim() || 'Unknown';
+                clientAvatar = clientData.profilePictureUrl || clientData.profile?.profilePictureUrl || '';
+              }
+            } catch (error) {
+              console.error('Error fetching client:', error);
+            }
+          }
+          
+          // Fetch gig info
+          if (reviewData.gigId) {
+            try {
+              const gigDoc = await getDoc(doc(db, 'gigs', reviewData.gigId));
+              if (gigDoc.exists()) {
+                gigTitle = gigDoc.data().title || 'Unknown Project';
+              }
+            } catch (error) {
+              console.error('Error fetching gig:', error);
+            }
+          }
+          
+          reviewsData.push({
+            id: docSnap.id,
+            clientName,
+            clientAvatar,
+            project: gigTitle,
+            rating: reviewData.rating || 0,
+            comment: reviewData.reviewText || '',
+            date: reviewData.createdAt?.toDate ? reviewData.createdAt.toDate().toLocaleDateString() : 'Unknown'
+          });
+        }
+        
+        const avgRating = reviewCount > 0 ? totalRating / reviewCount : 0;
+        const jobSuccessRate = ordersSnap.size > 0 ? (completedProjects / ordersSnap.size) * 100 : 0;
+
+        setStats({
+          totalEarnings: Math.round(totalEarnings * 100) / 100,
+          completedProjects,
+          clientSatisfaction: Math.round(avgRating * 10) / 10,
+          repeatClients: Math.round(repeatClientRate),
+          onTimeDelivery: Math.round(onTimeDeliveryRate),
+          avgProjectValue: Math.round(avgProjectValue * 100) / 100
+        });
+        
+        // Update completion rate in profile
+        setProfile(prev => ({
+          ...prev,
+          completionRate: Math.round(jobSuccessRate)
+        }));
+        
+        // Sort reviews by date
+        reviewsData.sort((a, b) => {
+          const dateA = new Date(a.date).getTime();
+          const dateB = new Date(b.date).getTime();
+          return dateB - dateA;
+        });
+        
+        setReviews(reviewsData);
+      } catch (error) {
+        console.error('Error fetching freelancer stats:', error);
+      }
+    };
+
+    fetchFreelancerStats();
   }, [currentUser]);
 
   const handleSaveProfile = async () => {
@@ -318,7 +464,8 @@ const Profile: React.FC = () => {
     { id: 'overview', label: 'Overview' },
     { id: 'skills', label: 'Skills & Expertise' },
     { id: 'experience', label: 'Experience' },
-    { id: 'education', label: 'Education' }
+    { id: 'education', label: 'Education' },
+    { id: 'reviews', label: `Reviews (${reviews.length})` }
   ];
 
   // Loading state
@@ -1020,6 +1167,73 @@ const Profile: React.FC = () => {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Reviews Tab */}
+            {activeTab === 'reviews' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-semibold text-[#2E2E2E]">Client Reviews</h3>
+                  <div className="flex items-center space-x-2">
+                    <Star className="w-5 h-5 text-yellow-400 fill-current" />
+                    <span className="text-xl font-bold text-[#2E2E2E]">{stats.clientSatisfaction.toFixed(1)}</span>
+                    <span className="text-[#2E2E2E]/60">({reviews.length} reviews)</span>
+                  </div>
+                </div>
+
+                {reviews.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Star className="w-16 h-16 mx-auto mb-4 text-[#2E2E2E]/20" />
+                    <h4 className="text-lg font-semibold text-[#2E2E2E] mb-2">No Reviews Yet</h4>
+                    <p className="text-[#2E2E2E]/60">Complete projects to start receiving reviews from clients.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {reviews.map((review) => (
+                      <div key={review.id} className="border border-gray-200 rounded-lg p-6">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-start space-x-4">
+                            {review.clientAvatar ? (
+                              <img 
+                                src={review.clientAvatar} 
+                                alt={review.clientName}
+                                className="w-12 h-12 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-12 h-12 rounded-full bg-[#FF6B00] flex items-center justify-center text-white font-bold">
+                                {review.clientName.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <div>
+                              <h4 className="font-semibold text-[#2E2E2E]">{review.clientName}</h4>
+                              <p className="text-sm text-[#2E2E2E]/60">{review.project}</p>
+                              <p className="text-xs text-[#2E2E2E]/40 mt-1">{review.date}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star
+                                key={star}
+                                className={`w-4 h-4 ${
+                                  star <= review.rating
+                                    ? 'text-yellow-400 fill-current'
+                                    : 'text-gray-300'
+                                }`}
+                              />
+                            ))}
+                            <span className="ml-2 text-sm font-medium text-[#2E2E2E]">
+                              {review.rating.toFixed(1)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <p className="text-[#2E2E2E]">{review.comment}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

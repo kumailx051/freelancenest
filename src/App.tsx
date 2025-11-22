@@ -1,5 +1,6 @@
 ﻿import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
+import { MessageProvider } from './contexts/MessageContext'
 import './index.css'
 
 // Pages
@@ -37,8 +38,11 @@ import BrowseFreelancersPage from './pages/client/BrowseFreelancersPage'
 import FreelancerProfilePage from './pages/client/FreelancerProfilePage'
 import HireGigPage from './pages/client/HireGigPage'
 import GigDetailsPage from './pages/client/GigDetailsPage'
+import PlaceOrderPage from './pages/client/PlaceOrderPage'
 import PostJobPage from './pages/client/PostJobPage'
 import MyJobsPage from './pages/client/MyJobsPage'
+import MyOrdersPage from './pages/client/MyOrdersPage'
+import OrderDetailsPage from './pages/client/OrderDetailsPage'
 import ShortlistComparePage from './pages/client/ShortlistComparePage'
 import CandidateProfilePage from './pages/client/CandidateProfilePage'
 import JobDetailsPage from './pages/client/JobDetailsPage'
@@ -95,7 +99,8 @@ import ProtectedRoute from './components/common/ProtectedRoute'
 function App() {
   return (
     <AuthProvider>
-      <Router>
+      <MessageProvider>
+        <Router>
       <Routes>
         {/* Admin Routes with AdminLayout */}
         <Route path="/admin/*" element={
@@ -123,8 +128,11 @@ function App() {
                 <Route path="freelancer/:id" element={<FreelancerProfilePage />} />
                 <Route path="hire-gig" element={<HireGigPage />} />
                 <Route path="gig/:id" element={<GigDetailsPage />} />
+                <Route path="place-order" element={<PlaceOrderPage />} />
                 <Route path="post-job" element={<PostJobPage />} />
                 <Route path="my-jobs" element={<MyJobsPage />} />
+                <Route path="my-orders" element={<MyOrdersPage />} />
+                <Route path="order/:orderId" element={<OrderDetailsPage />} />
                 <Route path="shortlist-compare" element={<ShortlistComparePage />} />
                 <Route path="candidate/:id" element={<CandidateProfilePage />} />
                 <Route path="job/:id" element={<JobDetailsPage />} />
@@ -218,7 +226,8 @@ function App() {
           </AppLayout>
         } />
       </Routes>
-    </Router>
+        </Router>
+      </MessageProvider>
     </AuthProvider>
   );
 }

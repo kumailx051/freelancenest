@@ -30,6 +30,9 @@ const Gigs = () => {
   const [selectedTab, setSelectedTab] = useState('all');
   const [gigs, setGigs] = useState<Gig[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [totalEarnings, setTotalEarnings] = useState(0);
+  const [avgRating, setAvgRating] = useState(0);
 
 
 
@@ -72,10 +75,73 @@ const Gigs = () => {
       
       setGigs(gigsData);
       
+      // Fetch order stats after gigs are loaded
+      await fetchOrderStats(gigsData);
+      
     } catch (error) {
       console.error('Error fetching gigs:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchOrderStats = async (gigsData: Gig[]) => {
+    if (!user?.uid || gigsData.length === 0) return;
+
+    try {
+      // Fetch all orders for this seller
+      const ordersQuery = query(
+        collection(db, 'orders'),
+        where('sellerId', '==', user.uid)
+      );
+      const ordersSnap = await getDocs(ordersQuery);
+      
+      let totalOrderCount = 0;
+      let totalEarned = 0;
+      const gigOrderCounts: { [key: string]: number } = {};
+      
+      ordersSnap.forEach((doc) => {
+        const orderData = doc.data();
+        totalOrderCount++;
+        
+        // Count orders per gig
+        if (orderData.gigId) {
+          gigOrderCounts[orderData.gigId] = (gigOrderCounts[orderData.gigId] || 0) + 1;
+        }
+        
+        // Calculate total earnings from completed orders
+        if (orderData.status === 'completed' && orderData.price) {
+          totalEarned += orderData.price;
+        }
+      });
+      
+      // Update gigs with actual order counts
+      const updatedGigs = gigsData.map(gig => ({
+        ...gig,
+        orders: gigOrderCounts[gig.id] || 0
+      }));
+      setGigs(updatedGigs);
+      
+      setTotalOrders(totalOrderCount);
+      setTotalEarnings(totalEarned);
+      
+      // Fetch reviews to calculate average rating
+      const reviewsQuery = query(
+        collection(db, 'reviews'),
+        where('sellerId', '==', user.uid)
+      );
+      const reviewsSnap = await getDocs(reviewsQuery);
+      
+      if (reviewsSnap.size > 0) {
+        let totalRating = 0;
+        reviewsSnap.forEach((doc) => {
+          totalRating += doc.data().rating || 0;
+        });
+        setAvgRating(Number((totalRating / reviewsSnap.size).toFixed(1)));
+      }
+      
+    } catch (error) {
+      console.error('Error fetching order stats:', error);
     }
   };
 
@@ -112,11 +178,6 @@ const Gigs = () => {
   const filteredGigs = gigs.filter(gig => 
     selectedTab === 'all' || gig.status === selectedTab
   );
-
-  // For now, keeping these as placeholder values
-  const totalEarnings = 4695;
-  const totalOrders = 77;
-  const avgRating = 4.8;
 
   return (
     <div className="min-h-screen bg-gray-50 pt-20">

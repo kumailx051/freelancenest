@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
@@ -15,7 +15,8 @@ import {
   Star,
   Calendar,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  User
 } from 'lucide-react';
 
 interface Gig {
@@ -63,6 +64,17 @@ interface Gig {
   faqs?: { question: string; answer: string }[];
 }
 
+interface Review {
+  id: string;
+  clientId: string;
+  clientName: string;
+  rating: number;
+  reviewText: string;
+  createdAt: any;
+  orderNumber: string;
+  clientAvatar?: string;
+}
+
 const GigDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -71,6 +83,10 @@ const GigDetails: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPackage, setSelectedPackage] = useState<'basic' | 'standard' | 'premium'>('basic');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
+  const [orderCount, setOrderCount] = useState(0);
+  const [viewCount, setViewCount] = useState(0);
 
   const nextImage = () => {
     if (gig?.gallery && gig.gallery.length > 1) {
@@ -133,6 +149,111 @@ const GigDetails: React.FC = () => {
 
     fetchGig();
   }, [id, user, navigate]);
+
+  useEffect(() => {
+    if (gig) {
+      fetchReviews();
+      fetchOrderStats();
+    }
+  }, [gig]);
+
+  const fetchOrderStats = async () => {
+    if (!gig) return;
+
+    try {
+      // Fetch orders for this gig
+      const ordersQuery = query(
+        collection(db, 'orders'),
+        where('gigId', '==', gig.id)
+      );
+      const ordersSnap = await getDocs(ordersQuery);
+      setOrderCount(ordersSnap.size);
+      
+      // Get views from gig data
+      setViewCount(gig.views || 0);
+    } catch (error) {
+      console.error('Error fetching order stats:', error);
+    }
+  };
+
+  const fetchReviews = async () => {
+    if (!gig) return;
+
+    setIsLoadingReviews(true);
+    try {
+      const reviewsQuery = query(
+        collection(db, 'reviews'),
+        where('gigId', '==', gig.id)
+      );
+      const reviewsSnap = await getDocs(reviewsQuery);
+      const reviewsData: Review[] = [];
+      
+      // Fetch reviews with client avatars
+      for (const docSnap of reviewsSnap.docs) {
+        const reviewData = docSnap.data();
+        let clientAvatar = '';
+        
+        // Fetch client's avatar from users collection
+        if (reviewData.clientId) {
+          try {
+            const userDoc = await getDoc(doc(db, 'users', reviewData.clientId));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              clientAvatar = userData.profilePictureUrl || userData.profile?.profilePictureUrl || '';
+            }
+          } catch (error) {
+            console.error('Error fetching client avatar:', error);
+          }
+        }
+        
+        reviewsData.push({
+          id: docSnap.id,
+          ...reviewData,
+          clientAvatar
+        } as Review);
+      }
+      
+      // Sort by createdAt in JavaScript
+      reviewsData.sort((a, b) => {
+        const aTime = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0);
+        const bTime = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0);
+        return bTime.getTime() - aTime.getTime();
+      });
+      
+      setReviews(reviewsData);
+    } catch (error) {
+      console.error('Error fetching reviews:', error);
+    } finally {
+      setIsLoadingReviews(false);
+    }
+  };
+
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return 'N/A';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  };
+
+  const renderStars = (rating: number) => {
+    return (
+      <div className="flex items-center gap-1">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Star
+            key={star}
+            className={`w-4 h-4 ${
+              star <= rating
+                ? 'fill-[#FF6B00] text-[#FF6B00]'
+                : 'text-gray-300'
+            }`}
+          />
+        ))}
+      </div>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -326,6 +447,83 @@ const GigDetails: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {/* Reviews */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Reviews</h2>
+              
+              {isLoadingReviews ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF6B00]"></div>
+                </div>
+              ) : reviews.length > 0 ? (
+                <div className="space-y-6">
+                  {/* Reviews Summary */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center gap-4">
+                      <div className="text-center">
+                        <p className="text-4xl font-bold text-gray-900">
+                          {(reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)}
+                        </p>
+                        {renderStars(Math.round(reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length))}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-gray-900 font-medium">
+                          {reviews.length} {reviews.length === 1 ? 'Review' : 'Reviews'}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Based on client feedback
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Individual Reviews */}
+                  <div className="space-y-4">
+                    {reviews.map((review) => (
+                      <div key={review.id} className="border-b border-gray-200 pb-4 last:border-0">
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="w-10 h-10 rounded-full bg-[#FF6B00] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {review.clientAvatar ? (
+                              <img 
+                                src={review.clientAvatar} 
+                                alt={review.clientName}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-white font-bold">
+                                {review.clientName?.charAt(0)?.toUpperCase() || 'U'}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <h4 className="font-semibold text-gray-900">{review.clientName}</h4>
+                              <span className="text-xs text-gray-500">
+                                {formatDate(review.createdAt)}
+                              </span>
+                            </div>
+                            {renderStars(review.rating)}
+                          </div>
+                        </div>
+                        <p className="text-gray-600 ml-13">
+                          {review.reviewText}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-2 ml-13">
+                          Order #{review.orderNumber}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <User className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">No reviews yet</p>
+                  <p className="text-sm text-gray-400 mt-1">Reviews will appear here once clients leave feedback</p>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Right Column - Sidebar */}
@@ -338,24 +536,26 @@ const GigDetails: React.FC = () => {
                   <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-lg mx-auto mb-2">
                     <Eye className="w-6 h-6 text-blue-600" />
                   </div>
-                  <p className="text-2xl font-bold text-gray-900">{gig.views || 0}</p>
+                  <p className="text-2xl font-bold text-gray-900">{viewCount}</p>
                   <p className="text-sm text-gray-500">Views</p>
                 </div>
                 <div className="text-center">
                   <div className="flex items-center justify-center w-12 h-12 bg-green-100 rounded-lg mx-auto mb-2">
                     <Package className="w-6 h-6 text-green-600" />
                   </div>
-                  <p className="text-2xl font-bold text-gray-900">{gig.orders || 0}</p>
+                  <p className="text-2xl font-bold text-gray-900">{orderCount}</p>
                   <p className="text-sm text-gray-500">Orders</p>
                 </div>
               </div>
               
-              {gig.rating > 0 && (
+              {reviews.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <div className="flex items-center justify-center">
                     <Star className="w-5 h-5 text-yellow-400 fill-current mr-1" />
-                    <span className="text-lg font-semibold text-gray-900">{gig.rating}</span>
-                    <span className="text-sm text-gray-500 ml-1">(0 reviews)</span>
+                    <span className="text-lg font-semibold text-gray-900">
+                      {(reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)}
+                    </span>
+                    <span className="text-sm text-gray-500 ml-1">({reviews.length} {reviews.length === 1 ? 'review' : 'reviews'})</span>
                   </div>
                 </div>
               )}

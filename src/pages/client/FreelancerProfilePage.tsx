@@ -10,6 +10,8 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { FreelanceFirestoreService } from '../../lib/firestoreService';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 
 interface FreelancerProfile {
   id: string;
@@ -77,15 +79,13 @@ const FreelancerProfilePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
-
-  // Mock data for demonstration (in real app, fetch from reviews/ratings service)
-  const [mockStats] = useState({
-    rating: 4.8,
-    reviewCount: 53,
-    completedProjects: 42,
-    responseTime: '2 hours',
-    successRate: 98,
-    repeatClients: 85
+  const [stats, setStats] = useState({
+    rating: 0,
+    reviewCount: 0,
+    completedProjects: 0,
+    responseTime: 'N/A',
+    successRate: 0,
+    repeatClients: 0
   });
 
   useEffect(() => {
@@ -125,6 +125,9 @@ const FreelancerProfilePage: React.FC = () => {
         }
 
         setFreelancer(freelancerData as FreelancerProfile);
+        
+        // Fetch real stats
+        await fetchFreelancerStats(freelancerData.uid);
       } catch (err) {
         console.error('Error loading freelancer profile:', err);
         setError('Failed to load freelancer profile. Please try again.');
@@ -135,6 +138,74 @@ const FreelancerProfilePage: React.FC = () => {
 
     loadFreelancerProfile();
   }, [id]);
+
+  const fetchFreelancerStats = async (freelancerUid: string) => {
+    try {
+      // Fetch reviews
+      const reviewsQuery = query(
+        collection(db, 'reviews'),
+        where('sellerId', '==', freelancerUid)
+      );
+      const reviewsSnap = await getDocs(reviewsQuery);
+      
+      let avgRating = 0;
+      let reviewCount = 0;
+      
+      if (reviewsSnap.size > 0) {
+        let totalRating = 0;
+        reviewsSnap.forEach((doc) => {
+          totalRating += doc.data().rating || 0;
+        });
+        avgRating = totalRating / reviewsSnap.size;
+        reviewCount = reviewsSnap.size;
+      }
+
+      // Fetch all orders for this freelancer
+      const allOrdersQuery = query(
+        collection(db, 'orders'),
+        where('sellerId', '==', freelancerUid)
+      );
+      const allOrdersSnap = await getDocs(allOrdersQuery);
+      
+      // Fetch completed orders
+      const completedOrdersQuery = query(
+        collection(db, 'orders'),
+        where('sellerId', '==', freelancerUid),
+        where('status', '==', 'completed')
+      );
+      const completedOrdersSnap = await getDocs(completedOrdersQuery);
+      
+      // Calculate success rate
+      const totalOrders = allOrdersSnap.size;
+      const completedOrders = completedOrdersSnap.size;
+      const successRate = totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 100) : 0;
+      
+      // Calculate repeat clients
+      const clientIds = new Set<string>();
+      const repeatClientIds = new Set<string>();
+      completedOrdersSnap.forEach((doc) => {
+        const clientId = doc.data().buyerId;
+        if (clientIds.has(clientId)) {
+          repeatClientIds.add(clientId);
+        }
+        clientIds.add(clientId);
+      });
+      const repeatClientPercentage = clientIds.size > 0 
+        ? Math.round((repeatClientIds.size / clientIds.size) * 100) 
+        : 0;
+
+      setStats({
+        rating: Number(avgRating.toFixed(1)),
+        reviewCount: reviewCount,
+        completedProjects: completedOrders,
+        responseTime: '2 hours', // This would require tracking response times
+        successRate: successRate,
+        repeatClients: repeatClientPercentage
+      });
+    } catch (error) {
+      console.error('Error fetching freelancer stats:', error);
+    }
+  };
 
   const getDisplayName = (freelancer: FreelancerProfile) => {
     if (freelancer.displayName) return freelancer.displayName;
@@ -275,10 +346,10 @@ const FreelancerProfilePage: React.FC = () => {
                 {/* Rating */}
                 <div className="flex items-center justify-center lg:justify-start gap-2 mb-4">
                   <div className="flex items-center gap-1">
-                    {renderStars(mockStats.rating)}
+                    {renderStars(stats.rating)}
                   </div>
-                  <span className="font-semibold text-[#2E2E2E]">{mockStats.rating}</span>
-                  <span className="text-[#2E2E2E] opacity-60">({mockStats.reviewCount} reviews)</span>
+                  <span className="font-semibold text-[#2E2E2E]">{stats.rating}</span>
+                  <span className="text-[#2E2E2E] opacity-60">({stats.reviewCount} reviews)</span>
                 </div>
 
                 {/* Hourly Rate */}
@@ -292,15 +363,15 @@ const FreelancerProfilePage: React.FC = () => {
             <div className="flex-1">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
                 <div className="text-center p-4 bg-[#ffeee3] rounded-lg">
-                  <div className="text-2xl font-bold text-[#2E2E2E]">{mockStats.completedProjects}</div>
+                  <div className="text-2xl font-bold text-[#2E2E2E]">{stats.completedProjects}</div>
                   <div className="text-sm text-[#2E2E2E] opacity-70">Projects Completed</div>
                 </div>
                 <div className="text-center p-4 bg-[#ffeee3] rounded-lg">
-                  <div className="text-2xl font-bold text-[#2E2E2E]">{mockStats.successRate}%</div>
+                  <div className="text-2xl font-bold text-[#2E2E2E]">{stats.successRate}%</div>
                   <div className="text-sm text-[#2E2E2E] opacity-70">Success Rate</div>
                 </div>
                 <div className="text-center p-4 bg-[#ffeee3] rounded-lg">
-                  <div className="text-2xl font-bold text-[#2E2E2E]">{mockStats.responseTime}</div>
+                  <div className="text-2xl font-bold text-[#2E2E2E]">{stats.responseTime}</div>
                   <div className="text-sm text-[#2E2E2E] opacity-70">Response Time</div>
                 </div>
               </div>
